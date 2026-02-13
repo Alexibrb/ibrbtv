@@ -16,6 +16,7 @@ const VideoSummaryGenerationInputSchema = z.object({
 export type VideoSummaryGenerationInput = z.infer<typeof VideoSummaryGenerationInputSchema>;
 
 const VideoSummaryGenerationOutputSchema = z.object({
+  title: z.string().describe('A short, engaging title for the video based on its content.'),
   summary: z.string().describe('A concise summary of the YouTube video content.'),
 });
 export type VideoSummaryGenerationOutput = z.infer<typeof VideoSummaryGenerationOutputSchema>;
@@ -37,7 +38,7 @@ for newly added content. The summary generation helps viewers quickly understand
 before watching the full replay. The channel aims to offer a professional and trustworthy platform
 for video content, using a dark blue and light blue color scheme with soft purple accents.
 This mock transcript focuses on the app's design philosophy and user experience, ensuring easy navigation
-and clear video presentation.`;
+and clear video presentation. The title should be 'IBRBTV App Features'.`;
 }
 
 const videoSummaryPrompt = ai.definePrompt({
@@ -45,8 +46,8 @@ const videoSummaryPrompt = ai.definePrompt({
   input: { schema: z.object({ transcript: z.string().describe('The full transcript of the YouTube video.') }) },
   output: { schema: VideoSummaryGenerationOutputSchema },
   prompt: `You are an expert summarizer. Your task is to generate a concise and informative summary
-  of the provided YouTube video transcript. The summary should capture the main points and overall theme
-  of the video, suitable for a viewer to quickly understand its content before watching.
+  AND a short, engaging title for the provided YouTube video transcript. The summary should capture the main points
+  and overall theme of the video, suitable for a viewer to quickly understand its content before watching.
 
   Video Transcript:
   {{{transcript}}}`, 

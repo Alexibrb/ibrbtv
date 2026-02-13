@@ -8,8 +8,10 @@ const FormSchema = z.object({
 });
 
 export type FormState = {
+  title: VideoSummaryGenerationOutput['title'] | null;
   summary: VideoSummaryGenerationOutput['summary'] | null;
   error: string | null;
+  youtubeUrl?: string;
 };
 
 export async function addVideoAction(
@@ -22,6 +24,7 @@ export async function addVideoAction(
 
   if (!validatedFields.success) {
     return {
+      title: null,
       summary: null,
       error: validatedFields.error.flatten().fieldErrors.youtubeUrl?.[0] ?? 'Erro de validação.',
     };
@@ -29,15 +32,14 @@ export async function addVideoAction(
 
   try {
     const result = await summarizeVideo({ youtubeUrl: validatedFields.data.youtubeUrl });
-    // In a real application, you would save the video URL and summary to a database here.
-    // For this demo, we just return the summary to display it on the client.
     console.log('Generated Summary:', result.summary);
     
-    return { summary: result.summary, error: null };
+    return { title: result.title, summary: result.summary, error: null, youtubeUrl: validatedFields.data.youtubeUrl };
   } catch (e) {
     console.error(e);
     const errorMessage = e instanceof Error ? e.message : 'Ocorreu um erro desconhecido.';
     return {
+      title: null,
       summary: null,
       error: `Falha ao gerar o resumo: ${errorMessage}`,
     };
