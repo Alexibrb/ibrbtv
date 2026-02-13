@@ -106,12 +106,12 @@ export default function VideoListManager() {
             <ScrollArea className="h-[400px]">
               <ul className="space-y-4 pr-4">
                 {videos.map((video) => (
-                  <li key={video.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border">
-                    <div className="flex-1 min-w-0">
+                  <li key={video.id} className="flex items-center gap-4 p-3 rounded-lg border">
+                    <div className="flex-grow min-w-0">
                        <p className="font-semibold truncate">{video.title}</p>
-                       <p className="text-sm text-muted-foreground truncate">{video.isLive ? 'AO VIVO' : 'Replay'}</p>
+                       <p className="text-sm text-muted-foreground">{video.isLive ? 'AO VIVO' : 'Replay'}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0 flex items-center gap-2">
                        <Button
                         variant="ghost"
                         size="icon"
