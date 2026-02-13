@@ -9,6 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { YoutubeTranscript } from 'youtube-transcript';
 
 const VideoSummaryGenerationInputSchema = z.object({
   youtubeUrl: z.string().url().describe('The URL of the YouTube video to summarize.'),
@@ -21,35 +22,31 @@ const VideoSummaryGenerationOutputSchema = z.object({
 });
 export type VideoSummaryGenerationOutput = z.infer<typeof VideoSummaryGenerationOutputSchema>;
 
-/**
- * MOCK: This function is a placeholder for retrieving a YouTube video transcript.
- * In a real application, this would involve calling a YouTube Data API or a third-party service
- * to extract the transcript from the given YouTube URL.
- * For this example, it returns a hardcoded mock transcript.
- */
 async function getYoutubeTranscript(youtubeUrl: string): Promise<string> {
-  console.warn(`MOCK: Attempting to fetch transcript for ${youtubeUrl}. This is a placeholder and returns mock data.`);
-  // A real implementation would fetch the transcript here.
-  return `This is a mock transcript of a YouTube video about the IBRBTV channel and its features.
-It explains that IBRBTV provides live YouTube streams and a catalog of past broadcast replays.
-Key functionalities include displaying the current live stream prominently on the main screen,
-a menu for easy selection of previous videos, and an automated AI-powered summarization tool
-for newly added content. The summary generation helps viewers quickly understand a video's topic
-before watching the full replay. The channel aims to offer a professional and trustworthy platform
-for video content, using a dark blue and light blue color scheme with soft purple accents.
-This mock transcript focuses on the app's design philosophy and user experience, ensuring easy navigation
-and clear video presentation. The title should be 'IBRBTV App Features'.`;
+  try {
+    const transcript = await YoutubeTranscript.fetchTranscript(youtubeUrl);
+    if (!transcript || transcript.length === 0) {
+      throw new Error("Não foi possível obter a transcrição ou o vídeo não tem legendas.");
+    }
+    return transcript.map(item => item.text).join(' ');
+  } catch (error) {
+    console.error("Erro ao buscar a transcrição do YouTube:", error);
+    if (error instanceof Error && (error.message.includes('subtitles are disabled') || error.message.includes('No transcripts are available'))) {
+      throw new Error("As legendas estão desativadas ou indisponíveis para este vídeo. Não é possível gerar um resumo.");
+    }
+    throw new Error("Falha ao buscar a transcrição do YouTube. Verifique a URL e se o vídeo possui legendas.");
+  }
 }
 
 const videoSummaryPrompt = ai.definePrompt({
   name: 'videoSummaryPrompt',
   input: { schema: z.object({ transcript: z.string().describe('The full transcript of the YouTube video.') }) },
   output: { schema: VideoSummaryGenerationOutputSchema },
-  prompt: `You are an expert summarizer. Your task is to generate a concise and informative summary
-  AND a short, engaging title for the provided YouTube video transcript. The summary should capture the main points
-  and overall theme of the video, suitable for a viewer to quickly understand its content before watching.
+  prompt: `Você é um especialista em resumos. Sua tarefa é gerar um resumo conciso e informativo
+  E um título curto e envolvente para a transcrição do vídeo do YouTube fornecida. O resumo deve capturar os pontos principais
+  e o tema geral do vídeo, adequado para um espectador entender rapidamente seu conteúdo antes de assistir.
 
-  Video Transcript:
+  Transcrição do Vídeo:
   {{{transcript}}}`, 
 });
 
@@ -60,14 +57,14 @@ const videoSummaryGenerationFlow = ai.defineFlow(
     outputSchema: VideoSummaryGenerationOutputSchema,
   },
   async (input) => {
-    // Step 1: Get the video transcript. In a real app, this would call an external service.
+    // Step 1: Get the video transcript.
     const transcript = await getYoutubeTranscript(input.youtubeUrl);
 
     // Step 2: Use the AI model to summarize the transcript.
     const { output } = await videoSummaryPrompt({ transcript });
 
     if (!output) {
-      throw new Error('Failed to generate video summary.');
+      throw new Error('Falha ao gerar o resumo do vídeo.');
     }
 
     return output;
