@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { summarizeVideo, type VideoSummaryGenerationOutput } from '@/ai/flows/video-summary-generation-flow';
+import { convertToEmbedUrl } from '@/lib/utils';
 
 const FormSchema = z.object({
   youtubeUrl: z.string().url('Por favor, insira uma URL válida do YouTube.'),
@@ -30,11 +31,24 @@ export async function addVideoAction(
     };
   }
 
+  const originalUrl = validatedFields.data.youtubeUrl;
+
   try {
-    const result = await summarizeVideo({ youtubeUrl: validatedFields.data.youtubeUrl });
+    const result = await summarizeVideo({ youtubeUrl: originalUrl });
     console.log('Generated Summary:', result.summary);
     
-    return { title: result.title, summary: result.summary, error: null, youtubeUrl: validatedFields.data.youtubeUrl };
+    const embedUrl = convertToEmbedUrl(originalUrl);
+    
+    if (!embedUrl || !embedUrl.includes('/embed/')) {
+        return {
+            title: null,
+            summary: null,
+            error: 'A URL fornecida não parece ser um vídeo válido do YouTube.',
+            youtubeUrl: originalUrl,
+        }
+    }
+
+    return { title: result.title, summary: result.summary, error: null, youtubeUrl: embedUrl };
   } catch (e) {
     console.error(e);
     const errorMessage = e instanceof Error ? e.message : 'Ocorreu um erro desconhecido.';
