@@ -12,7 +12,6 @@ import type { Video } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/common/SubmitButton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 
@@ -42,13 +41,13 @@ export default function AddVideoForm() {
       });
     }
 
-    if (state.summary && state.title && state.youtubeUrl && state.youtubeUrl !== processedUrl.current) {
+    if (state.title !== null && state.youtubeUrl && state.youtubeUrl !== processedUrl.current) {
       processedUrl.current = state.youtubeUrl;
       const newVideo: Video = {
         id: new Date().toISOString(),
         youtubeUrl: state.youtubeUrl,
         title: state.title,
-        summary: state.summary,
+        summary: '', // O resumo estará vazio inicialmente
         isLive: false,
       };
 
@@ -57,12 +56,11 @@ export default function AddVideoForm() {
         const updatedVideos = [newVideo, ...storedVideos];
         localStorage.setItem('videos', JSON.stringify(updatedVideos));
         
-        // Dispara um evento customizado para notificar outros componentes
         window.dispatchEvent(new CustomEvent('videos-updated'));
         
         toast({
           title: 'Vídeo adicionado!',
-          description: 'O vídeo foi salvo e adicionado ao catálogo.',
+          description: `"${state.title}" foi salvo no catálogo.`,
         });
 
         form.reset();
@@ -95,26 +93,14 @@ export default function AddVideoForm() {
               </FormItem>
             )}
           />
-          <SubmitButton>Gerar Resumo e Adicionar</SubmitButton>
+          <SubmitButton>Buscar Título e Adicionar</SubmitButton>
         </form>
       </Form>
 
-      {state.summary && state.title && (
-        <Card className="bg-muted/50">
-          <CardHeader>
-            <CardTitle className="font-headline text-xl">Resumo Gerado por IA</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <h3 className="font-semibold">{state.title}</h3>
-            <p className="text-muted-foreground mt-2">{state.summary}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {state.error && !state.summary && (
+      {state.error && (
          <Alert variant="destructive">
             <Terminal className="h-4 w-4" />
-            <AlertTitle>Falha na Geração</AlertTitle>
+            <AlertTitle>Falha ao Adicionar</AlertTitle>
             <AlertDescription>{state.error}</AlertDescription>
          </Alert>
       )}

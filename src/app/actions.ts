@@ -1,7 +1,6 @@
 'use server';
 
 import { z } from 'zod';
-import { summarizeVideo, type VideoSummaryGenerationOutput } from '@/ai/flows/video-summary-generation-flow';
 import { convertToEmbedUrl } from '@/lib/utils';
 
 const FormSchema = z.object({
@@ -9,11 +8,31 @@ const FormSchema = z.object({
 });
 
 export type FormState = {
-  title: VideoSummaryGenerationOutput['title'] | null;
-  summary: VideoSummaryGenerationOutput['summary'] | null;
+  title: string | null;
+  summary: string | null; // Manter para consistência, mas será vazio
   error: string | null;
   youtubeUrl?: string;
 };
+
+async function getYoutubeVideoTitle(youtubeUrl: string): Promise<string> {
+  try {
+    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`);
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('YouTube oEmbed error:', errorData);
+      throw new Error(`Não foi possível obter o título do vídeo. Status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.title;
+  } catch (error) {
+    console.error("Erro ao buscar o título do YouTube:", error);
+    if (error instanceof Error) {
+        throw new Error(`Falha ao buscar o título do YouTube: ${error.message}`);
+    }
+    throw new Error("Falha ao buscar o título do YouTube. Verifique a URL.");
+  }
+}
+
 
 export async function addVideoAction(
   prevState: FormState,
@@ -34,9 +53,7 @@ export async function addVideoAction(
   const originalUrl = validatedFields.data.youtubeUrl;
 
   try {
-    const result = await summarizeVideo({ youtubeUrl: originalUrl });
-    console.log('Generated Summary:', result.summary);
-    
+    const title = await getYoutubeVideoTitle(originalUrl);
     const embedUrl = convertToEmbedUrl(originalUrl);
     
     if (!embedUrl || !embedUrl.includes('/embed/')) {
@@ -48,14 +65,14 @@ export async function addVideoAction(
         }
     }
 
-    return { title: result.title, summary: result.summary, error: null, youtubeUrl: embedUrl };
+    return { title: title, summary: '', error: null, youtubeUrl: embedUrl };
   } catch (e) {
     console.error(e);
     const errorMessage = e instanceof Error ? e.message : 'Ocorreu um erro desconhecido.';
     return {
       title: null,
       summary: null,
-      error: `Falha ao gerar o resumo: ${errorMessage}`,
+      error: `Falha ao processar o vídeo: ${errorMessage}`,
     };
   }
 }
