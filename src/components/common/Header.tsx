@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { PlusCircle } from 'lucide-react';
+import { UserCog } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -15,9 +15,9 @@ export function Header() {
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
           <Button asChild>
-            <Link href="/add-video">
-              <PlusCircle />
-              <span>Adicionar Vídeo</span>
+            <Link href="/admin/login">
+              <UserCog />
+              <span>Admin</span>
             </Link>
           </Button>
         </div>
