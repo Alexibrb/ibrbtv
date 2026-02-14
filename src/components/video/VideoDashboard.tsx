@@ -30,7 +30,7 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [, setForceRerender] = useState(0);
+  const [forceRerender, setForceRerender] = useState(0);
 
   const loadCategories = () => {
     try {
@@ -140,7 +140,7 @@ export default function VideoDashboard() {
     
     return displayList;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVideos, selectedCategory, searchTerm, setForceRerender]); // depend on the forceRerender state
+  }, [allVideos, selectedCategory, searchTerm, forceRerender]); // depend on the forceRerender state
 
   useEffect(() => {
     if (filteredVideos.length > 0 && !currentVideo) {
