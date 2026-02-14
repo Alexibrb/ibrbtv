@@ -42,7 +42,7 @@ export async function addVideoAction(
 ): Promise<FormState> {
   const validatedFields = FormSchema.safeParse({
     youtubeUrl: formData.get('youtubeUrl'),
-    category: formData.get('category'),
+    category: formData.get('category') ?? '',
   });
 
   if (!validatedFields.success) {
