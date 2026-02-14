@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Input } from '../ui/input';
 
 
 const STORAGE_KEY = 'videos';
@@ -28,6 +29,7 @@ export default function VideoDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadCategories = () => {
     try {
@@ -101,14 +103,20 @@ export default function VideoDashboard() {
     
     const sortedPast = past.sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
     
-    const displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
+    let displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
 
-    if (selectedCategory === ALL_CATEGORIES) {
-      return displayList;
+    if (selectedCategory !== ALL_CATEGORIES) {
+      displayList = displayList.filter(video => video.isLive || video.category === selectedCategory);
+    }
+
+    if (searchTerm) {
+        displayList = displayList.filter(video => 
+            video.title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
     }
     
-    return displayList.filter(video => video.isLive || video.category === selectedCategory);
-  }, [allVideos, selectedCategory]);
+    return displayList;
+  }, [allVideos, selectedCategory, searchTerm]);
 
   useEffect(() => {
     if (filteredVideos.length > 0 && !currentVideo) {
@@ -186,9 +194,15 @@ export default function VideoDashboard() {
         <Card className="shadow-lg">
           <CardHeader>
              <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
-             <div className="pt-2">
+             <div className="flex flex-col gap-4 pt-4 sm:flex-row">
+                <Input
+                  placeholder="Filtrar por título..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-1/2"
+                />
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full sm:w-1/2">
                         <SelectValue placeholder="Filtrar por categoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -200,7 +214,7 @@ export default function VideoDashboard() {
              </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[52vh] pr-4">
+            <ScrollArea className="h-[46vh] pr-4">
               <div className="flex flex-col gap-4">
                 {filteredVideos.map((video) => (
                   <button
@@ -253,8 +267,9 @@ function DashboardSkeleton() {
                 <Card>
                     <CardHeader>
                         <Skeleton className="h-7 w-48" />
-                        <div className='pt-2'>
-                          <Skeleton className="h-10 w-full" />
+                        <div className="flex flex-col gap-4 pt-4 sm:flex-row">
+                          <Skeleton className="h-10 w-full sm:w-1/2" />
+                          <Skeleton className="h-10 w-full sm:w-1/2" />
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
