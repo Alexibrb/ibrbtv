@@ -25,6 +25,7 @@ const formSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório.'),
   summary: z.string().optional(),
   category: z.string().min(1, 'A categoria é obrigatória.'),
+  scheduledAt: z.string().optional(),
 });
 
 const CATEGORIES_STORAGE_KEY = 'video_categories';
@@ -44,6 +45,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
       title: '',
       summary: '',
       category: '',
+      scheduledAt: '',
     }
   });
   const [categories, setCategories] = useState<string[]>(defaultCategories);
@@ -86,10 +88,13 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
 
   useEffect(() => {
     if (video) {
+      // Format for datetime-local input which needs 'YYYY-MM-DDTHH:MM'
+      const scheduledValue = video.scheduledAt ? video.scheduledAt.substring(0, 16) : '';
       form.reset({
         title: video.title,
         summary: video.summary,
         category: video.category || '',
+        scheduledAt: scheduledValue,
       });
     }
   }, [video, form, isOpen]);
@@ -101,6 +106,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
         title: data.title,
         summary: data.summary || '',
         category: data.category,
+        scheduledAt: data.scheduledAt || undefined,
       });
     }
   };
@@ -108,7 +114,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Editar Vídeo</DialogTitle>
             <DialogDescription>
@@ -143,35 +149,50 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoria</FormLabel>
-                    <div className="flex items-center gap-2">
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" variant="outline" size="icon" onClick={() => setIsCategoryModalOpen(true)} aria-label="Adicionar nova categoria">
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <div className="flex items-center gap-2">
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="outline" size="icon" onClick={() => setIsCategoryModalOpen(true)} aria-label="Adicionar nova categoria">
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="scheduledAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Agendar Horário (Opcional)</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Cancelar

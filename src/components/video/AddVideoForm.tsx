@@ -21,6 +21,7 @@ import AddCategoryDialog from '@/components/category/AddCategoryDialog';
 const formSchema = z.object({
   youtubeUrl: z.string().url('Por favor, insira uma URL válida do YouTube.'),
   category: z.string().min(1, 'Por favor, selecione uma categoria.'),
+  scheduledAt: z.string().optional(),
 });
 
 const CATEGORIES_STORAGE_KEY = 'video_categories';
@@ -38,6 +39,7 @@ export default function AddVideoForm() {
     defaultValues: {
       youtubeUrl: '',
       category: '',
+      scheduledAt: '',
     },
   });
 
@@ -87,6 +89,7 @@ export default function AddVideoForm() {
         summary: '', // O resumo estará vazio inicialmente
         isLive: false,
         category: state.category,
+        scheduledAt: state.scheduledAt || undefined,
       };
 
       try {
@@ -131,37 +134,52 @@ export default function AddVideoForm() {
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Categoria</FormLabel>
-                <div className="flex items-center gap-2">
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" onClick={() => setIsCategoryModalOpen(true)} aria-label="Adicionar nova categoria">
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-                 {/* This hidden input ensures the 'category' value is included in the form submission */}
-                <input type="hidden" name={field.name} value={field.value || ''} />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma categoria" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" variant="outline" size="icon" onClick={() => setIsCategoryModalOpen(true)} aria-label="Adicionar nova categoria">
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                   {/* This hidden input ensures the 'category' value is included in the form submission */}
+                  <input type="hidden" name={field.name} value={field.value || ''} />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="scheduledAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Agendar Horário (Opcional)</FormLabel>
+                  <FormControl>
+                    <Input type="datetime-local" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <SubmitButton>Buscar Título e Adicionar</SubmitButton>
         </form>
       </Form>

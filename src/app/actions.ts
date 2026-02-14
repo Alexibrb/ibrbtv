@@ -6,6 +6,7 @@ import { convertToEmbedUrl } from '@/lib/utils';
 const FormSchema = z.object({
   youtubeUrl: z.string().url('Por favor, insira uma URL válida do YouTube.'),
   category: z.string().min(1, 'A categoria é obrigatória.'),
+  scheduledAt: z.string().optional(),
 });
 
 export type FormState = {
@@ -14,6 +15,7 @@ export type FormState = {
   error: string | null;
   youtubeUrl?: string;
   category?: string;
+  scheduledAt?: string;
 };
 
 async function getYoutubeVideoTitle(youtubeUrl: string): Promise<string> {
@@ -43,17 +45,22 @@ export async function addVideoAction(
   const validatedFields = FormSchema.safeParse({
     youtubeUrl: formData.get('youtubeUrl'),
     category: formData.get('category') ?? '',
+    scheduledAt: formData.get('scheduledAt') || undefined,
   });
 
   if (!validatedFields.success) {
+    const firstError = validatedFields.error.flatten().fieldErrors.youtubeUrl?.[0] 
+      || validatedFields.error.flatten().fieldErrors.category?.[0]
+      || 'Erro de validação.';
+
     return {
       title: null,
       summary: null,
-      error: validatedFields.error.flatten().fieldErrors.youtubeUrl?.[0] ?? validatedFields.error.flatten().fieldErrors.category?.[0] ?? 'Erro de validação.',
+      error: firstError,
     };
   }
 
-  const { youtubeUrl: originalUrl, category } = validatedFields.data;
+  const { youtubeUrl: originalUrl, category, scheduledAt } = validatedFields.data;
 
   try {
     const title = await getYoutubeVideoTitle(originalUrl);
@@ -68,7 +75,7 @@ export async function addVideoAction(
         }
     }
 
-    return { title: title, summary: '', error: null, youtubeUrl: embedUrl, category: category };
+    return { title: title, summary: '', error: null, youtubeUrl: embedUrl, category: category, scheduledAt: scheduledAt };
   } catch (e) {
     console.error(e);
     const errorMessage = e instanceof Error ? e.message : 'Ocorreu um erro desconhecido.';

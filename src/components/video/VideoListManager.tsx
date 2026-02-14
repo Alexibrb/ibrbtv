@@ -4,12 +4,13 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import EditVideoDialog from './EditVideoDialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '../ui/badge';
 
 const CATEGORIES_STORAGE_KEY = 'video_categories';
 const ALL_CATEGORIES = 'Todas as Categorias';
@@ -163,6 +164,12 @@ export default function VideoListManager() {
                     <div className="min-w-0">
                        <p className="font-semibold truncate">{video.title}</p>
                        <p className="text-sm text-muted-foreground">{video.category} - {video.isLive ? 'AO VIVO' : 'Replay'}</p>
+                       {video.scheduledAt && (
+                         <Badge variant="outline" className="mt-2 text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Agendado: {new Date(video.scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                         </Badge>
+                       )}
                     </div>
                     <div className="flex items-center gap-2">
                        <Button

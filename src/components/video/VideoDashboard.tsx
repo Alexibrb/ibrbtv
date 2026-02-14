@@ -30,6 +30,7 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [, setForceRerender] = useState(0);
 
   const loadCategories = () => {
     try {
@@ -81,10 +82,16 @@ export default function VideoDashboard() {
     
     loadVideos();
 
+    // Check for scheduled videos every minute
+    const intervalId = setInterval(() => {
+      setForceRerender(prev => prev + 1);
+    }, 60000);
+
     const handleVideosUpdated = () => loadVideos();
     window.addEventListener('videos-updated', handleVideosUpdated);
 
     return () => {
+      clearInterval(intervalId);
       window.removeEventListener('videos-updated', handleVideosUpdated);
     };
   }, []);
@@ -98,10 +105,26 @@ export default function VideoDashboard() {
   }, [allVideos]); // Rerun when videos change to derive categories
   
   const filteredVideos = useMemo(() => {
-    const liveVideo = allVideos.find(v => v.isLive);
-    const past = allVideos.filter(v => !v.isLive);
+    const now = new Date();
     
-    const sortedPast = past.sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
+    const availableVideos = allVideos.filter(video => {
+      if (video.isLive) return true;
+      if (!video.scheduledAt) return true;
+      try {
+        return new Date(video.scheduledAt) <= now;
+      } catch (e) {
+        return false; // Don't show videos with invalid dates
+      }
+    });
+
+    const liveVideo = availableVideos.find(v => v.isLive);
+    const past = availableVideos.filter(v => !v.isLive);
+    
+    const sortedPast = past.sort((a, b) => {
+        const dateA = a.scheduledAt ? new Date(a.scheduledAt) : new Date(a.id);
+        const dateB = b.scheduledAt ? new Date(b.scheduledAt) : new Date(b.id);
+        return dateB.getTime() - dateA.getTime();
+    });
     
     let displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
 
@@ -116,7 +139,8 @@ export default function VideoDashboard() {
     }
     
     return displayList;
-  }, [allVideos, selectedCategory, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allVideos, selectedCategory, searchTerm, setForceRerender]); // depend on the forceRerender state
 
   useEffect(() => {
     if (filteredVideos.length > 0 && !currentVideo) {
