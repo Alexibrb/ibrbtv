@@ -230,24 +230,23 @@ export default function VideoDashboard() {
             <ScrollArea className="h-[46vh] pr-4">
               <div className="flex flex-col gap-4">
                 {filteredVideos.map((video) => {
+                  const isFinishedCountdown = finishedCountdownIds.includes(video.id);
+
+                  if (isFinishedCountdown) {
+                    return (
+                        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-primary/50 bg-primary/5 p-3 text-left">
+                            <p className="font-semibold text-card-foreground">{video.title}</p>
+                            <Badge variant="default" className="mt-1">DISPONÍVEL AGORA</Badge>
+                            <Button onClick={() => window.location.reload()} size="sm" className="mt-2">
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Atualizar para assistir
+                            </Button>
+                        </div>
+                    );
+                  }
+                  
                   const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > new Date();
-
                   if (isScheduledFuture) {
-                      const isFinished = finishedCountdownIds.includes(video.id);
-
-                      if (isFinished) {
-                          return (
-                              <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-primary/50 bg-primary/5 p-3 text-left">
-                                  <p className="font-semibold text-card-foreground">{video.title}</p>
-                                  <Badge variant="default" className="mt-1">DISPONÍVEL AGORA</Badge>
-                                  <Button onClick={() => window.location.reload()} size="sm" className="mt-2">
-                                      <RefreshCw className="mr-2 h-4 w-4" />
-                                      Atualizar para assistir
-                                  </Button>
-                              </div>
-                          );
-                      }
-
                       return (
                           <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
                               <p className="font-semibold text-card-foreground">{video.title}</p>
