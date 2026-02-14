@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useActionState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,21 +13,25 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/common/SubmitButton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, PlusCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import AddCategoryDialog from '@/components/category/AddCategoryDialog';
 
 const formSchema = z.object({
   youtubeUrl: z.string().url('Por favor, insira uma URL válida do YouTube.'),
   category: z.string().min(1, 'Por favor, selecione uma categoria.'),
 });
 
-const videoCategories = ["Domingo de Manhã", "Estudo", "Evento Especial"];
+const CATEGORIES_STORAGE_KEY = 'video_categories';
+const defaultCategories = ["Domingo de Manhã", "Estudo", "Evento Especial"];
 
 export default function AddVideoForm() {
   const initialState: FormState = { title: null, summary: null, error: null };
   const [state, formAction] = useActionState(addVideoAction, initialState);
   const processedUrl = useRef('');
-
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -36,6 +40,31 @@ export default function AddVideoForm() {
       category: '',
     },
   });
+
+  useEffect(() => {
+    try {
+      const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
+      if (storedCategories) {
+        setCategories(JSON.parse(storedCategories));
+      } else {
+        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
+      }
+    } catch (error) {
+      console.error('Failed to load categories', error);
+      setCategories(defaultCategories);
+    }
+  }, []);
+
+  const handleCategoryAdded = (newCategory: string) => {
+    if (!categories.includes(newCategory)) {
+      const updatedCategories = [...categories, newCategory].sort();
+      setCategories(updatedCategories);
+      localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updatedCategories));
+      form.setValue('category', newCategory, { shouldValidate: true });
+      window.dispatchEvent(new CustomEvent('categories-updated'));
+    }
+    setIsCategoryModalOpen(false);
+  };
 
   useEffect(() => {
     if (state.error) {
@@ -105,20 +134,25 @@ export default function AddVideoForm() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Categoria</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma categoria" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {videoCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select onValueChange={field.onChange} value={field.value || ''} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setIsCategoryModalOpen(true)} aria-label="Adicionar nova categoria">
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -126,6 +160,12 @@ export default function AddVideoForm() {
           <SubmitButton>Buscar Título e Adicionar</SubmitButton>
         </form>
       </Form>
+
+      <AddCategoryDialog 
+        isOpen={isCategoryModalOpen}
+        onOpenChange={setIsCategoryModalOpen}
+        onCategoryAdded={handleCategoryAdded}
+      />
 
       {state.error && (
          <Alert variant="destructive">

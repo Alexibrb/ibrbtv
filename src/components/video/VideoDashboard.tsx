@@ -19,6 +19,7 @@ import {
 
 
 const STORAGE_KEY = 'videos';
+const CATEGORIES_STORAGE_KEY = 'video_categories';
 const ALL_CATEGORIES = 'Todos';
 
 export default function VideoDashboard() {
@@ -26,6 +27,31 @@ export default function VideoDashboard() {
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
+  const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
+
+  const loadCategories = () => {
+    try {
+        const storedCategoriesRaw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
+        const storedCategories = storedCategoriesRaw ? JSON.parse(storedCategoriesRaw) : [];
+
+        const videoCategories = allVideos
+            .filter(v => v.category && v.category !== 'Ao Vivo')
+            .map(v => v.category);
+
+        const combined = [...storedCategories, ...videoCategories];
+        const unique = [...new Set(combined)].sort();
+
+        setCategories([ALL_CATEGORIES, ...unique]);
+    } catch (error) {
+        console.error("Failed to load or parse categories", error);
+        // Fallback to just video categories
+        const videoCats = allVideos
+            .filter(v => v.category && v.category !== 'Ao Vivo')
+            .map(v => v.category);
+        setCategories([ALL_CATEGORIES, ...[...new Set(videoCats)].sort()]);
+    }
+  };
+
 
   useEffect(() => {
     function loadVideos() {
@@ -53,7 +79,6 @@ export default function VideoDashboard() {
     
     loadVideos();
 
-    // Listen for custom event to update video list
     const handleVideosUpdated = () => loadVideos();
     window.addEventListener('videos-updated', handleVideosUpdated);
 
@@ -61,15 +86,15 @@ export default function VideoDashboard() {
       window.removeEventListener('videos-updated', handleVideosUpdated);
     };
   }, []);
-  
-  const categories = useMemo(() => {
-    const videoCategories = allVideos
-      .filter(v => v.category)
-      .map(v => v.category);
-    // 'Ao Vivo' should not be a filterable category
-    return [ALL_CATEGORIES, ...Array.from(new Set(videoCategories.filter(c => c !== 'Ao Vivo')))];
-  }, [allVideos]);
 
+  useEffect(() => {
+    loadCategories();
+    window.addEventListener('categories-updated', loadCategories);
+    return () => {
+      window.removeEventListener('categories-updated', loadCategories);
+    };
+  }, [allVideos]); // Rerun when videos change to derive categories
+  
   const filteredVideos = useMemo(() => {
     const liveVideo = allVideos.find(v => v.isLive);
     const past = allVideos.filter(v => !v.isLive);
@@ -105,10 +130,15 @@ export default function VideoDashboard() {
 
 
   const handleSelectVideo = (video: Video) => {
-    if (!video.isLive && !video.youtubeUrl.includes('autoplay=1')) {
-      const urlWithAutoplay = new URL(video.youtubeUrl);
-      urlWithAutoplay.searchParams.set('autoplay', '1');
-      setCurrentVideo({ ...video, youtubeUrl: urlWithAutoplay.toString() });
+    if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
+      try {
+        const urlWithAutoplay = new URL(video.youtubeUrl);
+        urlWithAutoplay.searchParams.set('autoplay', '1');
+        setCurrentVideo({ ...video, youtubeUrl: urlWithAutoplay.toString() });
+      } catch (e) {
+        // Fallback for invalid URL
+        setCurrentVideo(video);
+      }
     } else {
       setCurrentVideo(video);
     }
@@ -189,8 +219,8 @@ export default function VideoDashboard() {
                         <Play className="h-6 w-6" />
                       )}
                     </div>
-                    <div className="flex-grow">
-                      <p className="font-semibold text-card-foreground">{video.title}</p>
+                    <div className="min-w-0 flex-grow">
+                      <p className="font-semibold text-card-foreground truncate">{video.title}</p>
                       {video.isLive && (
                         <Badge variant="destructive" className="mt-1 animate-pulse">
                           AO VIVO
