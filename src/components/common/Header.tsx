@@ -3,6 +3,7 @@ import { UserCog } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   return (
@@ -13,13 +14,14 @@ export function Header() {
             <Logo className="h-6 w-auto" />
           </Link>
         </div>
-        <div className="flex flex-1 items-center justify-end space-x-2">
+        <div className="flex flex-1 items-center justify-end space-x-4">
           <Button asChild>
             <Link href="/admin/login">
               <UserCog />
               <span>Admin</span>
             </Link>
           </Button>
+          <ThemeToggle />
         </div>
       </div>
     </header>
