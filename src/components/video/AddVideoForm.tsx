@@ -47,7 +47,7 @@ export default function AddVideoForm() {
       if (storedCategories) {
         const parsed = JSON.parse(storedCategories);
         if (Array.isArray(parsed)) {
-          setCategories(parsed.filter(c => typeof c === 'string'));
+          setCategories(parsed.filter((c): c is string => typeof c === 'string'));
         }
       } else {
         localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
@@ -156,6 +156,8 @@ export default function AddVideoForm() {
                     <PlusCircle className="h-4 w-4" />
                   </Button>
                 </div>
+                 {/* This hidden input ensures the 'category' value is included in the form submission */}
+                <input type="hidden" name={field.name} value={field.value || ''} />
                 <FormMessage />
               </FormItem>
             )}
