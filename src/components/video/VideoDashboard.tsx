@@ -30,7 +30,7 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [forceRerender, setForceRerender] = useState(0);
+  const [now, setNow] = useState(new Date());
 
   const loadCategories = () => {
     try {
@@ -84,7 +84,7 @@ export default function VideoDashboard() {
 
     // Check for scheduled videos every minute
     const intervalId = setInterval(() => {
-      setForceRerender(prev => prev + 1);
+      setNow(new Date());
     }, 60000);
 
     const handleVideosUpdated = () => loadVideos();
@@ -105,8 +105,6 @@ export default function VideoDashboard() {
   }, [allVideos]); // Rerun when videos change to derive categories
   
   const filteredVideos = useMemo(() => {
-    const now = new Date();
-    
     const availableVideos = allVideos.filter(video => {
       if (video.isLive) return true;
       if (!video.scheduledAt) return true;
@@ -139,8 +137,7 @@ export default function VideoDashboard() {
     }
     
     return displayList;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVideos, selectedCategory, searchTerm, forceRerender]); // depend on the forceRerender state
+  }, [allVideos, selectedCategory, searchTerm, now]);
 
   useEffect(() => {
     if (filteredVideos.length > 0 && !currentVideo) {
