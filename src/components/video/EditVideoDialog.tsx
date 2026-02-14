@@ -53,7 +53,10 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
     try {
       const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
       if (storedCategories) {
-        setCategories(JSON.parse(storedCategories));
+        const parsed = JSON.parse(storedCategories);
+        if (Array.isArray(parsed)) {
+          setCategories(parsed.filter(c => typeof c === 'string'));
+        }
       } else {
         localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
       }
@@ -86,7 +89,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
       form.reset({
         title: video.title,
         summary: video.summary,
-        category: video.category,
+        category: video.category || '',
       });
     }
   }, [video, form, isOpen]);
