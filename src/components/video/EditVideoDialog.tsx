@@ -40,6 +40,11 @@ type EditVideoDialogProps = {
 export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }: EditVideoDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      summary: '',
+      category: '',
+    }
   });
   const [categories, setCategories] = useState<string[]>(defaultCategories);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -142,7 +147,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
                   <FormItem>
                     <FormLabel>Categoria</FormLabel>
                     <div className="flex items-center gap-2">
-                        <Select onValueChange={field.onChange} value={field.value || ''} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione uma categoria" />

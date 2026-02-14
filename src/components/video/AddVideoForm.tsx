@@ -135,7 +135,7 @@ export default function AddVideoForm() {
               <FormItem>
                 <FormLabel>Categoria</FormLabel>
                 <div className="flex items-center gap-2">
-                  <Select onValueChange={field.onChange} value={field.value || ''} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma categoria" />
