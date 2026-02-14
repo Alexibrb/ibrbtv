@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,13 +9,23 @@ import { Play, Radio } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { liveVideo as initialLiveVideo, pastVideos as initialPastVideos } from '@/lib/videos';
 import { Skeleton } from '../ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
 
 const STORAGE_KEY = 'videos';
+const ALL_CATEGORIES = 'Todos';
 
 export default function VideoDashboard() {
   const [allVideos, setAllVideos] = useState<Video[]>([]);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
 
   useEffect(() => {
     function loadVideos() {
@@ -23,7 +33,8 @@ export default function VideoDashboard() {
       try {
         const storedVideosRaw = localStorage.getItem(STORAGE_KEY);
         if (storedVideosRaw) {
-          setAllVideos(JSON.parse(storedVideosRaw));
+          const parsedVideos = JSON.parse(storedVideosRaw);
+          setAllVideos(parsedVideos);
         } else {
           // Seed local storage with initial data if it's empty
           const initialVideos = [initialLiveVideo, ...initialPastVideos];
@@ -33,7 +44,8 @@ export default function VideoDashboard() {
       } catch (error) {
         console.error("Failed to load videos from localStorage", error);
         // Fallback to initial data if localStorage fails
-        setAllVideos([initialLiveVideo, ...initialPastVideos]);
+        const initialData = [initialLiveVideo, ...initialPastVideos];
+        setAllVideos(initialData);
       } finally {
         setIsLoading(false);
       }
@@ -42,27 +54,54 @@ export default function VideoDashboard() {
     loadVideos();
 
     // Listen for custom event to update video list
-    window.addEventListener('videos-updated', loadVideos);
+    const handleVideosUpdated = () => loadVideos();
+    window.addEventListener('videos-updated', handleVideosUpdated);
 
     return () => {
-      window.removeEventListener('videos-updated', loadVideos);
+      window.removeEventListener('videos-updated', handleVideosUpdated);
     };
   }, []);
+  
+  const categories = useMemo(() => {
+    const videoCategories = allVideos
+      .filter(v => v.category)
+      .map(v => v.category);
+    // 'Ao Vivo' should not be a filterable category
+    return [ALL_CATEGORIES, ...Array.from(new Set(videoCategories.filter(c => c !== 'Ao Vivo')))];
+  }, [allVideos]);
+
+  const filteredVideos = useMemo(() => {
+    const liveVideo = allVideos.find(v => v.isLive);
+    const past = allVideos.filter(v => !v.isLive);
+    
+    const sortedPast = past.sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
+    
+    const displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
+
+    if (selectedCategory === ALL_CATEGORIES) {
+      return displayList;
+    }
+    
+    return displayList.filter(video => video.isLive || video.category === selectedCategory);
+  }, [allVideos, selectedCategory]);
 
   useEffect(() => {
-    if (allVideos.length > 0) {
-      const live = allVideos.find(v => v.isLive);
+    if (filteredVideos.length > 0 && !currentVideo) {
+      const live = filteredVideos.find(v => v.isLive);
       if (live) {
         setCurrentVideo(live);
       } else {
-        // Find the most recent non-live video
-        const sorted = [...allVideos].filter(v => !v.isLive).sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
-        setCurrentVideo(sorted[0] || null);
+        setCurrentVideo(filteredVideos[0] || null);
       }
-    } else {
+    } else if (filteredVideos.length > 0 && currentVideo) {
+        // If current video is no longer in the filtered list, update it
+        if (!filteredVideos.some(v => v.id === currentVideo.id)) {
+            setCurrentVideo(filteredVideos[0]);
+        }
+    } else if (filteredVideos.length === 0) {
         setCurrentVideo(null);
     }
-  }, [allVideos]);
+  }, [filteredVideos, currentVideo]);
 
 
   const handleSelectVideo = (video: Video) => {
@@ -106,7 +145,7 @@ export default function VideoDashboard() {
              <CardContent className="flex h-[60vh] items-center justify-center">
                 <div className="text-center">
                     <h2 className="font-headline text-2xl">Nenhum vídeo encontrado</h2>
-                    <p className="text-muted-foreground mt-2">Adicione um vídeo na área de administração para começar.</p>
+                    <p className="text-muted-foreground mt-2">Tente selecionar outra categoria ou adicione um vídeo na área de administração.</p>
                 </div>
              </CardContent>
           )}
@@ -116,13 +155,24 @@ export default function VideoDashboard() {
       <div className="lg:col-span-1">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
-            <CardDescription>Selecione um vídeo para assistir</CardDescription>
+             <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
+             <div className="pt-2">
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Filtrar por categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {categories.map(category => (
+                            <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+             </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[60vh] pr-4">
+            <ScrollArea className="h-[52vh] pr-4">
               <div className="flex flex-col gap-4">
-                {allVideos.map((video) => (
+                {filteredVideos.map((video) => (
                   <button
                     key={video.id}
                     onClick={() => handleSelectVideo(video)}
@@ -173,7 +223,9 @@ function DashboardSkeleton() {
                 <Card>
                     <CardHeader>
                         <Skeleton className="h-7 w-48" />
-                        <Skeleton className="h-4 w-full" />
+                        <div className='pt-2'>
+                          <Skeleton className="h-10 w-full" />
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                        {Array.from({ length: 4 }).map((_, i) => (

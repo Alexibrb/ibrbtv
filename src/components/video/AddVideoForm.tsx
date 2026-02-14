@@ -14,10 +14,14 @@ import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/common/SubmitButton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const formSchema = z.object({
   youtubeUrl: z.string().url('Por favor, insira uma URL válida do YouTube.'),
+  category: z.string().min(1, 'Por favor, selecione uma categoria.'),
 });
+
+const videoCategories = ["Domingo de Manhã", "Estudo", "Evento Especial"];
 
 export default function AddVideoForm() {
   const initialState: FormState = { title: null, summary: null, error: null };
@@ -29,6 +33,7 @@ export default function AddVideoForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       youtubeUrl: '',
+      category: '',
     },
   });
 
@@ -41,7 +46,7 @@ export default function AddVideoForm() {
       });
     }
 
-    if (state.title !== null && state.youtubeUrl && state.youtubeUrl !== processedUrl.current) {
+    if (state.title && state.youtubeUrl && state.category && state.youtubeUrl !== processedUrl.current) {
       processedUrl.current = state.youtubeUrl;
       const newVideo: Video = {
         id: new Date().toISOString(),
@@ -49,6 +54,7 @@ export default function AddVideoForm() {
         title: state.title,
         summary: '', // O resumo estará vazio inicialmente
         isLive: false,
+        category: state.category,
       };
 
       try {
@@ -89,6 +95,30 @@ export default function AddVideoForm() {
                 <FormControl>
                   <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Categoria</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {videoCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

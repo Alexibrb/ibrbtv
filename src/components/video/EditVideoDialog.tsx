@@ -16,12 +16,16 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect } from 'react';
 
 const formSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório.'),
   summary: z.string().optional(),
+  category: z.string().min(1, 'A categoria é obrigatória.'),
 });
+
+const videoCategories = ["Domingo de Manhã", "Estudo", "Evento Especial"];
 
 type EditVideoDialogProps = {
   video: Video | null;
@@ -40,6 +44,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
       form.reset({
         title: video.title,
         summary: video.summary,
+        category: video.category,
       });
     }
   }, [video, form, isOpen]);
@@ -50,6 +55,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
         ...video,
         title: data.title,
         summary: data.summary || '',
+        category: data.category,
       });
     }
   };
@@ -87,6 +93,30 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
                   <FormControl>
                     <Textarea placeholder="Um resumo conciso do vídeo." {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {videoCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

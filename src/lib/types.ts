@@ -4,4 +4,5 @@ export type Video = {
   title: string;
   summary: string;
   isLive?: boolean;
+  category: string;
 };

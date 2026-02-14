@@ -4,26 +4,30 @@
     "youtubeUrl": "https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1",
     "title": "Ao Vivo Agora",
     "summary": "Nossa transmissão ao vivo está no ar. Junte-se a nós para o conteúdo mais recente e interaja com a comunidade em tempo real.",
-    "isLive": true
+    "isLive": true,
+    "category": "Ao Vivo"
   },
   "pastVideos": [
     {
       "id": "1",
       "youtubeUrl": "https://www.youtube.com/embed/LXb3EKWsInQ",
       "title": "Replay: Manhã de Domingo",
-      "summary": "Uma análise aprofundada dos eventos da semana passada e o que esperar a seguir. Uma sessão de perguntas e respostas com convidados especiais."
+      "summary": "Uma análise aprofundada dos eventos da semana passada e o que esperar a seguir. Uma sessão de perguntas e respostas com convidados especiais.",
+      "category": "Domingo de Manhã"
     },
     {
       "id": "2",
       "youtubeUrl": "https://www.youtube.com/embed/BBbgp42ySjE",
       "title": "Replay: Estudo de Quarta-feira",
-      "summary": "Mergulhe em nosso estudo detalhado. Este replay cobre os principais tópicos e discussões da nossa sessão no meio da semana."
+      "summary": "Mergulhe em nosso estudo detalhado. Este replay cobre os principais tópicos e discussões da nossa sessão no meio da semana.",
+      "category": "Estudo"
     },
     {
       "id": "3",
       "youtubeUrl": "https://www.youtube.com/embed/d-j_yL_Y_iA",
       "title": "Replay: Evento Especial",
-      "summary": "Reviva os destaques do nosso último evento especial. Apresenta performances exclusivas e palestras de nossos palestrantes."
+      "summary": "Reviva os destaques do nosso último evento especial. Apresenta performances exclusivas e palestras de nossos palestrantes.",
+      "category": "Evento Especial"
     }
   ]
 }

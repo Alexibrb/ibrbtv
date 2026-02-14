@@ -109,7 +109,7 @@ export default function VideoListManager() {
                   <li key={video.id} className="grid grid-cols-[1fr_auto] items-center gap-4 p-3 rounded-lg border">
                     <div className="min-w-0">
                        <p className="font-semibold truncate">{video.title}</p>
-                       <p className="text-sm text-muted-foreground">{video.isLive ? 'AO VIVO' : 'Replay'}</p>
+                       <p className="text-sm text-muted-foreground">{video.category} - {video.isLive ? 'AO VIVO' : 'Replay'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                        <Button
