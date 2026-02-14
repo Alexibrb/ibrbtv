@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -104,40 +104,38 @@ export default function VideoDashboard() {
     };
   }, [allVideos]); // Rerun when videos change to derive categories
   
-  const filteredVideos = useMemo(() => {
-    const availableVideos = allVideos.filter(video => {
-      if (video.isLive) return true;
-      if (!video.scheduledAt) return true;
-      try {
-        return new Date(video.scheduledAt) <= now;
-      } catch (e) {
-        return false; // Don't show videos with invalid dates
-      }
-    });
-
-    const liveVideo = availableVideos.find(v => v.isLive);
-    const past = availableVideos.filter(v => !v.isLive);
-    
-    const sortedPast = past.sort((a, b) => {
-        const dateA = a.scheduledAt ? new Date(a.scheduledAt) : new Date(a.id);
-        const dateB = b.scheduledAt ? new Date(b.scheduledAt) : new Date(b.id);
-        return dateB.getTime() - dateA.getTime();
-    });
-    
-    let displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
-
-    if (selectedCategory !== ALL_CATEGORIES) {
-      displayList = displayList.filter(video => video.isLive || video.category === selectedCategory);
+  const availableVideos = allVideos.filter(video => {
+    if (video.isLive) return true;
+    if (!video.scheduledAt) return true;
+    try {
+      return new Date(video.scheduledAt) <= now;
+    } catch (e) {
+      return false; // Don't show videos with invalid dates
     }
+  });
 
-    if (searchTerm) {
-        displayList = displayList.filter(video => 
-            video.title.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }
-    
-    return displayList;
-  }, [allVideos, selectedCategory, searchTerm, now]);
+  const liveVideo = availableVideos.find(v => v.isLive);
+  const past = availableVideos.filter(v => !v.isLive);
+  
+  const sortedPast = past.sort((a, b) => {
+      const dateA = a.scheduledAt ? new Date(a.scheduledAt) : new Date(a.id);
+      const dateB = b.scheduledAt ? new Date(b.scheduledAt) : new Date(b.id);
+      return dateB.getTime() - dateA.getTime();
+  });
+  
+  let displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
+
+  if (selectedCategory !== ALL_CATEGORIES) {
+    displayList = displayList.filter(video => video.isLive || video.category === selectedCategory);
+  }
+
+  if (searchTerm) {
+      displayList = displayList.filter(video => 
+          video.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }
+  
+  const filteredVideos = displayList;
 
   useEffect(() => {
     if (filteredVideos.length > 0 && !currentVideo) {
