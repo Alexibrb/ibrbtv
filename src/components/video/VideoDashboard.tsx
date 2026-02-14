@@ -5,7 +5,7 @@ import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Play, Radio } from 'lucide-react';
+import { Play, Radio, Clock, RefreshCw } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { liveVideo as initialLiveVideo, pastVideos as initialPastVideos } from '@/lib/videos';
 import { Skeleton } from '../ui/skeleton';
@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from '../ui/input';
+import CountdownTimer from './CountdownTimer';
+import { Button } from '../ui/button';
 
 
 const STORAGE_KEY = 'videos';
@@ -30,7 +32,7 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [now, setNow] = useState(new Date());
+  const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
 
   const loadCategories = () => {
     try {
@@ -82,16 +84,10 @@ export default function VideoDashboard() {
     
     loadVideos();
 
-    // Check for scheduled videos every minute
-    const intervalId = setInterval(() => {
-      setNow(new Date());
-    }, 60000);
-
     const handleVideosUpdated = () => loadVideos();
     window.addEventListener('videos-updated', handleVideosUpdated);
 
     return () => {
-      clearInterval(intervalId);
       window.removeEventListener('videos-updated', handleVideosUpdated);
     };
   }, []);
@@ -104,52 +100,50 @@ export default function VideoDashboard() {
     };
   }, [allVideos]); // Rerun when videos change to derive categories
   
-  const availableVideos = allVideos.filter(video => {
-    if (video.isLive) return true;
-    if (!video.scheduledAt) return true;
-    try {
-      return new Date(video.scheduledAt) <= now;
-    } catch (e) {
-      return false; // Don't show videos with invalid dates
-    }
-  });
-
-  const liveVideo = availableVideos.find(v => v.isLive);
-  const past = availableVideos.filter(v => !v.isLive);
+  const handleCountdownComplete = (videoId: string) => {
+    setFinishedCountdownIds(prev => [...new Set([...prev, videoId])]);
+  };
   
+  const now = new Date();
+  const liveVideo = allVideos.find(v => v.isLive);
+  
+  const scheduledVideos = allVideos
+    .filter(v => !v.isLive && v.scheduledAt && new Date(v.scheduledAt) > now)
+    .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+
+  const past = allVideos.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now));
+
   const sortedPast = past.sort((a, b) => {
       const dateA = a.scheduledAt ? new Date(a.scheduledAt) : new Date(a.id);
       const dateB = b.scheduledAt ? new Date(b.scheduledAt) : new Date(b.id);
       return dateB.getTime() - dateA.getTime();
   });
-  
-  let displayList = liveVideo ? [liveVideo, ...sortedPast] : sortedPast;
+
+  let initialList = [...scheduledVideos, ...sortedPast];
 
   if (selectedCategory !== ALL_CATEGORIES) {
-    displayList = displayList.filter(video => video.isLive || video.category === selectedCategory);
+    initialList = initialList.filter(video => video.category === selectedCategory);
   }
 
   if (searchTerm) {
-      displayList = displayList.filter(video => 
+      initialList = initialList.filter(video => 
           video.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
   }
-  
-  const filteredVideos = displayList;
+
+  const filteredVideos = liveVideo ? [liveVideo, ...initialList] : initialList;
 
   useEffect(() => {
-    if (filteredVideos.length > 0 && !currentVideo) {
+    const isCurrentVideoVisible = currentVideo && filteredVideos.some(v => v.id === currentVideo.id);
+
+    if (filteredVideos.length > 0 && !isCurrentVideoVisible) {
       const live = filteredVideos.find(v => v.isLive);
       if (live) {
         setCurrentVideo(live);
       } else {
-        setCurrentVideo(filteredVideos[0] || null);
+        const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= new Date());
+        setCurrentVideo(firstPlayable || null);
       }
-    } else if (filteredVideos.length > 0 && currentVideo) {
-        // If current video is no longer in the filtered list, update it
-        if (!filteredVideos.some(v => v.id === currentVideo.id)) {
-            setCurrentVideo(filteredVideos[0]);
-        }
     } else if (filteredVideos.length === 0) {
         setCurrentVideo(null);
     }
@@ -235,33 +229,70 @@ export default function VideoDashboard() {
           <CardContent>
             <ScrollArea className="h-[46vh] pr-4">
               <div className="flex flex-col gap-4">
-                {filteredVideos.map((video) => (
-                  <button
-                    key={video.id}
-                    onClick={() => handleSelectVideo(video)}
-                    className={cn(
-                      'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
-                      currentVideo?.id === video.id && 'bg-accent/80'
-                    )}
-                    aria-current={currentVideo?.id === video.id}
-                  >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      {video.isLive ? (
-                        <Radio className="h-6 w-6 animate-pulse" />
-                      ) : (
-                        <Play className="h-6 w-6" />
+                {filteredVideos.map((video) => {
+                  const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > new Date();
+
+                  if (isScheduledFuture) {
+                      const isFinished = finishedCountdownIds.includes(video.id);
+
+                      if (isFinished) {
+                          return (
+                              <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-primary/50 bg-primary/5 p-3 text-left">
+                                  <p className="font-semibold text-card-foreground">{video.title}</p>
+                                  <Badge variant="default" className="mt-1">DISPONÍVEL AGORA</Badge>
+                                  <Button onClick={() => window.location.reload()} size="sm" className="mt-2">
+                                      <RefreshCw className="mr-2 h-4 w-4" />
+                                      Atualizar para assistir
+                                  </Button>
+                              </div>
+                          );
+                      }
+
+                      return (
+                          <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
+                              <p className="font-semibold text-card-foreground">{video.title}</p>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Clock className="h-4 w-4" />
+                                  <span>Começa em:</span>
+                              </div>
+                              <CountdownTimer
+                                  targetDate={video.scheduledAt!}
+                                  onComplete={() => handleCountdownComplete(video.id)}
+                                  className="w-full text-lg font-mono text-primary"
+                              />
+                          </div>
+                      );
+                  }
+
+
+                  return (
+                    <button
+                      key={video.id}
+                      onClick={() => handleSelectVideo(video)}
+                      className={cn(
+                        'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
+                        currentVideo?.id === video.id && 'bg-accent/80'
                       )}
-                    </div>
-                    <div className="min-w-0 flex-grow">
-                      <p className="font-semibold text-card-foreground truncate">{video.title}</p>
-                      {video.isLive && (
-                        <Badge variant="destructive" className="mt-1 animate-pulse">
-                          AO VIVO
-                        </Badge>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                      aria-current={currentVideo?.id === video.id}
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        {video.isLive ? (
+                          <Radio className="h-6 w-6 animate-pulse" />
+                        ) : (
+                          <Play className="h-6 w-6" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-grow">
+                        <p className="font-semibold text-card-foreground truncate">{video.title}</p>
+                        {video.isLive && (
+                          <Badge variant="destructive" className="mt-1 animate-pulse">
+                            AO VIVO
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </ScrollArea>
           </CardContent>
