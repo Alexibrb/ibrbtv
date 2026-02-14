@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,11 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import EditVideoDialog from './EditVideoDialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const CATEGORIES_STORAGE_KEY = 'video_categories';
+const ALL_CATEGORIES = 'Todas as Categorias';
 
 export default function VideoListManager() {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -15,25 +20,42 @@ export default function VideoListManager() {
   const [videoToEdit, setVideoToEdit] = useState<Video | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const loadVideos = () => {
+  // New states for filtering
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
+  const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
+
+  const loadVideosAndCategories = () => {
     setIsLoading(true);
     try {
-      const storedVideos = localStorage.getItem('videos');
-      if (storedVideos) {
-        setVideos(JSON.parse(storedVideos));
-      }
+      const storedVideosRaw = localStorage.getItem('videos');
+      const loadedVideos = storedVideosRaw ? JSON.parse(storedVideosRaw) : [];
+      setVideos(loadedVideos);
+
+      const storedCategoriesRaw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
+      const storedCategories = storedCategoriesRaw ? JSON.parse(storedCategoriesRaw) : [];
+      
+      const videoCategories = loadedVideos
+        .map((v: Video) => v.category)
+        .filter((c: string | undefined): c is string => !!c);
+
+      const uniqueCategories = [...new Set([...storedCategories, ...videoCategories])].sort();
+      setCategories([ALL_CATEGORIES, ...uniqueCategories]);
+
     } catch (error) {
-      console.error('Failed to load videos from localStorage', error);
+      console.error('Failed to load data from localStorage', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadVideos();
-    window.addEventListener('videos-updated', loadVideos);
+    loadVideosAndCategories();
+    window.addEventListener('videos-updated', loadVideosAndCategories);
+    window.addEventListener('categories-updated', loadVideosAndCategories);
     return () => {
-      window.removeEventListener('videos-updated', loadVideos);
+      window.removeEventListener('videos-updated', loadVideosAndCategories);
+      window.removeEventListener('categories-updated', loadVideosAndCategories);
     };
   }, []);
 
@@ -90,22 +112,53 @@ export default function VideoListManager() {
     }
   };
 
+  const filteredVideos = useMemo(() => {
+    return videos
+      .filter(video => {
+        if (selectedCategory === ALL_CATEGORIES) return true;
+        return video.category === selectedCategory;
+      })
+      .filter(video => {
+        if (!searchTerm) return true;
+        return video.title.toLowerCase().includes(searchTerm.toLowerCase());
+      })
+      .sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
+  }, [videos, selectedCategory, searchTerm]);
+
   return (
     <>
       <Card className="shadow-lg mt-8">
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Gerenciar Vídeos</CardTitle>
-          <CardDescription>Visualize, edite e remova vídeos cadastrados.</CardDescription>
+          <CardDescription>Visualize, edite e remova vídeos cadastrados. Use os filtros para encontrar vídeos específicos.</CardDescription>
+          <div className="flex flex-col gap-4 pt-4 sm:flex-row">
+            <Input
+              placeholder="Filtrar por título..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full sm:w-1/2"
+            />
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-1/2">
+                <SelectValue placeholder="Filtrar por categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <p>Carregando vídeos...</p>
-          ) : videos.length === 0 ? (
-            <p className="text-muted-foreground">Nenhum vídeo cadastrado.</p>
+          ) : filteredVideos.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">Nenhum vídeo encontrado com os filtros atuais.</p>
           ) : (
             <ScrollArea className="h-[400px]">
               <ul className="space-y-4 pr-4">
-                {videos.map((video) => (
+                {filteredVideos.map((video) => (
                   <li key={video.id} className="grid grid-cols-[1fr_auto] items-center gap-4 p-3 rounded-lg border">
                     <div className="min-w-0">
                        <p className="font-semibold truncate">{video.title}</p>
