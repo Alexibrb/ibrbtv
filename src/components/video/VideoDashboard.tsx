@@ -33,6 +33,14 @@ export default function VideoDashboard() {
   const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
   const [searchTerm, setSearchTerm] = useState('');
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 60 * 1000); // every minute
+    return () => clearInterval(timer);
+  }, []);
 
   const loadCategories = () => {
     try {
@@ -104,7 +112,6 @@ export default function VideoDashboard() {
     setFinishedCountdownIds(prev => [...new Set([...prev, videoId])]);
   };
   
-  const now = new Date();
   const liveVideo = allVideos.find(v => v.isLive);
   
   const scheduledVideos = allVideos
@@ -147,7 +154,7 @@ export default function VideoDashboard() {
     } else if (filteredVideos.length === 0) {
         setCurrentVideo(null);
     }
-  }, [filteredVideos, currentVideo]);
+  }, [filteredVideos, currentVideo, now]);
 
 
   const handleSelectVideo = (video: Video) => {
@@ -270,11 +277,14 @@ export default function VideoDashboard() {
                       onClick={() => handleSelectVideo(video)}
                       className={cn(
                         'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
-                        currentVideo?.id === video.id && 'bg-accent/80'
+                        currentVideo?.id === video.id && 'bg-success text-success-foreground hover:bg-success/90'
                       )}
                       aria-current={currentVideo?.id === video.id}
                     >
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <div className={cn(
+                        'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
+                        currentVideo?.id === video.id ? 'bg-white/20' : 'bg-primary/10 text-primary'
+                      )}>
                         {video.isLive ? (
                           <Radio className="h-6 w-6 animate-pulse" />
                         ) : (
@@ -282,7 +292,7 @@ export default function VideoDashboard() {
                         )}
                       </div>
                       <div className="min-w-0 flex-grow">
-                        <p className="font-semibold text-card-foreground truncate">{video.title}</p>
+                        <p className="font-semibold truncate">{video.title}</p>
                         {video.isLive && (
                           <Badge variant="destructive" className="mt-1 animate-pulse">
                             AO VIVO
