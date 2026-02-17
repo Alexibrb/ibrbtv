@@ -4,10 +4,8 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 100 20"
-      width="100"
-      height="20"
-      aria-label="IBRBTV Logo"
+      viewBox="0 0 160 40"
+      aria-label="I.B.R.B TV Logo"
       {...props}
     >
       <defs>
@@ -16,27 +14,35 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
           <stop offset="100%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 1 }} />
         </linearGradient>
       </defs>
-      <text
-        x="0"
-        y="15"
-        fontFamily="Poppins, sans-serif"
-        fontSize="16"
-        fontWeight="bold"
-        fill="url(#logo-gradient)"
-      >
-        IBRBTV
-      </text>
-      <text
-        x="68"
-        y="15"
-        fontFamily="Poppins, sans-serif"
-        fontSize="16"
-        fontWeight="normal"
-        fill="hsl(var(--foreground))"
-        opacity="0.8"
-      >
-        Replay
-      </text>
+      
+      {/* Background Logo: A subtle play icon in a circle */}
+      <g transform="translate(5, 3)" opacity="0.1">
+        <circle cx="12" cy="12" r="12" fill="hsl(var(--primary))" />
+        <path d="M 9 7 L 17 12 L 9 17 Z" fill="hsl(var(--background))" />
+      </g>
+
+      <g>
+        <text
+          x="0"
+          y="22"
+          fontFamily="Poppins, sans-serif"
+          fontSize="22"
+          fontWeight="bold"
+          fill="url(#logo-gradient)"
+        >
+          I.B.R.B TV
+        </text>
+        <text
+          x="0"
+          y="36"
+          fontFamily="Poppins, sans-serif"
+          fontSize="9"
+          fontWeight="normal"
+          fill="hsl(var(--muted-foreground))"
+        >
+          Evangelizando para Cristo
+        </text>
+      </g>
     </svg>
   );
 }

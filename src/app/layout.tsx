@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'IBRBTV Replay',
-  description: 'Assista replays de transmissões e a live atual.',
+  title: 'I.B.R.B TV',
+  description: 'Evangelizando para Cristo através de transmissões ao vivo e replays.',
 };
 
 export default function RootLayout({
