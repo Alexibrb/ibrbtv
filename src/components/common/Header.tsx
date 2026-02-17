@@ -24,19 +24,19 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
+      <div className="container flex h-52 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center space-x-2">
             {loading ? (
-              <Skeleton className="h-10 w-48" />
+              <Skeleton className="h-48 w-96" />
             ) : (
               <Image
                 src={logoUrl}
                 alt="I.B.R.B TV Logo"
-                width={200}
-                height={100}
+                width={400}
+                height={200}
                 priority
-                className="h-10 w-auto"
+                className="h-48 w-auto"
               />
             )}
           </Link>
