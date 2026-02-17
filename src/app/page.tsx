@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight, LogIn } from 'lucide-react';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 export default function LandingPage() {
   return (
@@ -14,7 +15,7 @@ export default function LandingPage() {
           Sua plataforma para evangelização através de transmissões ao vivo e replays.
         </p>
       </div>
-      <div className="flex flex-col gap-4 sm:flex-row">
+      <div className="flex flex-col items-center gap-4 sm:flex-row">
         <Button asChild size="lg">
           <Link href="/watch">
             Assistir Agora
@@ -27,6 +28,7 @@ export default function LandingPage() {
             Acesso Admin
           </Link>
         </Button>
+        <ThemeToggle />
       </div>
     </div>
   );
