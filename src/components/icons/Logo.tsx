@@ -4,7 +4,7 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 160 40"
+      viewBox="0 0 160 55"
       aria-label="I.B.R.B TV Logo"
       {...props}
     >
@@ -24,9 +24,9 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
       <g>
         <text
           x="0"
-          y="22"
+          y="32"
           fontFamily="Poppins, sans-serif"
-          fontSize="22"
+          fontSize="32"
           fontWeight="bold"
           fill="url(#logo-gradient)"
         >
@@ -34,9 +34,9 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
         </text>
         <text
           x="0"
-          y="36"
+          y="50"
           fontFamily="Poppins, sans-serif"
-          fontSize="9"
+          fontSize="14"
           fontWeight="normal"
           fill="hsl(var(--muted-foreground))"
         >
