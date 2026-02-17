@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/common/Header';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
   title: 'IBRBTV Replay',
@@ -32,11 +33,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="relative flex min-h-screen w-full flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-          </div>
-          <Toaster />
+          <FirebaseClientProvider>
+            <div className="relative flex min-h-screen w-full flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+            </div>
+            <Toaster />
+          </FirebaseClientProvider>
         </ThemeProvider>
       </body>
     </html>

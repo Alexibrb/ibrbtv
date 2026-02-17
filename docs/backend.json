@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "Video": {
+      "title": "Video",
+      "description": "Represents a video in the catalog.",
+      "type": "object",
+      "properties": {
+        "youtubeUrl": {
+          "type": "string",
+          "description": "The URL of the YouTube video."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the video."
+        },
+        "summary": {
+          "type": "string",
+          "description": "A summary of the video."
+        },
+        "isLive": {
+          "type": "boolean",
+          "description": "Indicates if the video is currently live."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the video."
+        },
+        "scheduledAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date and time the video is scheduled to be available."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the video was created."
+        }
+      },
+      "required": ["youtubeUrl", "title", "category", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Represents a video category.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the category."
+        }
+      },
+      "required": ["name"]
+    }
+  },
+  "auth": {
+    "providers": []
+  },
+  "firestore": {
+    "/videos/{videoId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Video"
+      },
+      "description": "Stores individual video documents."
+    },
+    "/categories/{categoryId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Category"
+      },
+      "description": "Stores video category documents."
+    }
+  }
+}

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Play, Radio, Clock, RefreshCw } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { liveVideo as initialLiveVideo, pastVideos as initialPastVideos } from '@/lib/videos';
 import { Skeleton } from '../ui/skeleton';
 import {
   Select,
@@ -19,21 +18,34 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { Button } from '../ui/button';
+import { useFirebase, useCollection, useMemoFirebase, WithId } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 
 
-const STORAGE_KEY = 'videos';
-const CATEGORIES_STORAGE_KEY = 'video_categories';
 const ALL_CATEGORIES = 'Todos';
+type Category = { name: string };
 
 export default function VideoDashboard() {
-  const [allVideos, setAllVideos] = useState<Video[]>([]);
-  const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { firestore } = useFirebase();
+  const [currentVideo, setCurrentVideo] = useState<WithId<Video> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
-  const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
   const [searchTerm, setSearchTerm] = useState('');
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
+
+  const videosQuery = useMemoFirebase(
+    () => query(collection(firestore, 'videos'), orderBy('createdAt', 'desc')),
+    [firestore]
+  );
+  const { data: allVideos, loading: videosLoading } = useCollection<Video>(videosQuery.path);
+
+  const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
+
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(categoriesData?.map(c => c.name) || [])].sort();
+    return [ALL_CATEGORIES, ...uniqueCategories];
+  }, [categoriesData]);
+  
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -41,104 +53,41 @@ export default function VideoDashboard() {
     }, 60 * 1000); // every minute
     return () => clearInterval(timer);
   }, []);
-
-  const loadCategories = () => {
-    try {
-        const storedCategoriesRaw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-        const storedCategories = storedCategoriesRaw ? JSON.parse(storedCategoriesRaw) : [];
-
-        const videoCategories = allVideos
-            .filter(v => v.category && v.category !== 'Ao Vivo')
-            .map(v => v.category);
-
-        const combined = [...storedCategories, ...videoCategories];
-        const unique = [...new Set(combined)].sort();
-
-        setCategories([ALL_CATEGORIES, ...unique]);
-    } catch (error) {
-        console.error("Failed to load or parse categories", error);
-        // Fallback to just video categories
-        const videoCats = allVideos
-            .filter(v => v.category && v.category !== 'Ao Vivo')
-            .map(v => v.category);
-        setCategories([ALL_CATEGORIES, ...[...new Set(videoCats)].sort()]);
-    }
-  };
-
-
-  useEffect(() => {
-    function loadVideos() {
-      setIsLoading(true);
-      try {
-        const storedVideosRaw = localStorage.getItem(STORAGE_KEY);
-        if (storedVideosRaw) {
-          const parsedVideos = JSON.parse(storedVideosRaw);
-          setAllVideos(parsedVideos);
-        } else {
-          // Seed local storage with initial data if it's empty
-          const initialVideos = [initialLiveVideo, ...initialPastVideos];
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialVideos));
-          setAllVideos(initialVideos);
-        }
-      } catch (error) {
-        console.error("Failed to load videos from localStorage", error);
-        // Fallback to initial data if localStorage fails
-        const initialData = [initialLiveVideo, ...initialPastVideos];
-        setAllVideos(initialData);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    loadVideos();
-
-    const handleVideosUpdated = () => loadVideos();
-    window.addEventListener('videos-updated', handleVideosUpdated);
-
-    return () => {
-      window.removeEventListener('videos-updated', handleVideosUpdated);
-    };
-  }, []);
-
-  useEffect(() => {
-    loadCategories();
-    window.addEventListener('categories-updated', loadCategories);
-    return () => {
-      window.removeEventListener('categories-updated', loadCategories);
-    };
-  }, [allVideos]); // Rerun when videos change to derive categories
   
   const handleCountdownComplete = (videoId: string) => {
     setFinishedCountdownIds(prev => [...new Set([...prev, videoId])]);
   };
   
-  const liveVideo = allVideos.find(v => v.isLive);
+  const liveVideo = allVideos?.find(v => v.isLive);
   
-  const scheduledVideos = allVideos
-    .filter(v => !v.isLive && v.scheduledAt && new Date(v.scheduledAt) > now)
-    .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+  const scheduledVideos = useMemo(() => 
+    allVideos
+      ?.filter(v => !v.isLive && v.scheduledAt && new Date(v.scheduledAt) > now)
+      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime()) || [],
+    [allVideos, now]
+  );
 
-  const past = allVideos.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now));
+  const past = useMemo(() =>
+    allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now)) || [],
+    [allVideos, now]
+  );
+  
+  const initialList = useMemo(() => [...scheduledVideos, ...past], [scheduledVideos, past]);
 
-  const sortedPast = past.sort((a, b) => {
-      const dateA = a.scheduledAt ? new Date(a.scheduledAt) : new Date(a.id);
-      const dateB = b.scheduledAt ? new Date(b.scheduledAt) : new Date(b.id);
-      return dateB.getTime() - dateA.getTime();
-  });
-
-  let initialList = [...scheduledVideos, ...sortedPast];
-
-  if (selectedCategory !== ALL_CATEGORIES) {
-    initialList = initialList.filter(video => video.category === selectedCategory);
-  }
-
-  if (searchTerm) {
-      initialList = initialList.filter(video => 
-          video.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredList = useMemo(() => {
+    let list = initialList;
+    if (selectedCategory !== ALL_CATEGORIES) {
+      list = list.filter(video => video.category === selectedCategory);
+    }
+    if (searchTerm) {
+      list = list.filter(video => 
+        video.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
-  }
+    }
+    return list;
+  }, [initialList, selectedCategory, searchTerm]);
 
-  const filteredVideos = liveVideo ? [liveVideo, ...initialList] : initialList;
+  const filteredVideos = liveVideo ? [liveVideo, ...filteredList] : filteredList;
 
   useEffect(() => {
     const isCurrentVideoVisible = currentVideo && filteredVideos.some(v => v.id === currentVideo.id);
@@ -148,7 +97,7 @@ export default function VideoDashboard() {
       if (live) {
         setCurrentVideo(live);
       } else {
-        const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= new Date());
+        const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
         setCurrentVideo(firstPlayable || null);
       }
     } else if (filteredVideos.length === 0) {
@@ -157,14 +106,13 @@ export default function VideoDashboard() {
   }, [filteredVideos, currentVideo, now]);
 
 
-  const handleSelectVideo = (video: Video) => {
+  const handleSelectVideo = (video: WithId<Video>) => {
     if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
       try {
         const urlWithAutoplay = new URL(video.youtubeUrl);
         urlWithAutoplay.searchParams.set('autoplay', '1');
         setCurrentVideo({ ...video, youtubeUrl: urlWithAutoplay.toString() });
       } catch (e) {
-        // Fallback for invalid URL
         setCurrentVideo(video);
       }
     } else {
@@ -172,7 +120,7 @@ export default function VideoDashboard() {
     }
   };
 
-  if (isLoading) {
+  if (videosLoading || categoriesLoading) {
     return <DashboardSkeleton />;
   }
 
@@ -221,9 +169,9 @@ export default function VideoDashboard() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full sm:w-1/2"
                 />
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
                     <SelectTrigger className="w-full sm:w-1/2">
-                        <SelectValue placeholder="Filtrar por categoria" />
+                        <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Filtrar por categoria"} />
                     </SelectTrigger>
                     <SelectContent>
                         {categories.map(category => (
@@ -252,7 +200,7 @@ export default function VideoDashboard() {
                     );
                   }
                   
-                  const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > new Date();
+                  const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
                   if (isScheduledFuture) {
                       return (
                           <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">

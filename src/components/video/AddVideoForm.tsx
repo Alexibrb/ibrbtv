@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useActionState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { addVideoAction, type FormState } from '@/app/actions';
 import type { Video } from '@/lib/types';
+import { useFirebase, addDocumentNonBlocking, WithId, useCollection } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -24,14 +26,14 @@ const formSchema = z.object({
   scheduledAt: z.string().optional(),
 });
 
-const CATEGORIES_STORAGE_KEY = 'video_categories';
-const defaultCategories = ["Domingo de Manhã", "Estudo", "Evento Especial"];
+type Category = { name: string };
 
 export default function AddVideoForm() {
+  const { firestore } = useFirebase();
   const initialState: FormState = { title: null, summary: null, error: null };
   const [state, formAction] = useActionState(addVideoAction, initialState);
   const processedUrl = useRef('');
-  const [categories, setCategories] = useState<string[]>(defaultCategories);
+  const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -43,32 +45,35 @@ export default function AddVideoForm() {
     },
   });
 
-  useEffect(() => {
-    try {
-      const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      if (storedCategories) {
-        const parsed = JSON.parse(storedCategories);
-        if (Array.isArray(parsed)) {
-          setCategories(parsed.filter((c): c is string => typeof c === 'string'));
-        }
-      } else {
-        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
-      }
-    } catch (error) {
-      console.error('Failed to load categories', error);
-      setCategories(defaultCategories);
-    }
-  }, []);
+  const handleCategoryAdded = async (newCategoryName: string) => {
+    if (newCategoryName.trim() === '') return;
 
-  const handleCategoryAdded = (newCategory: string) => {
-    if (!categories.includes(newCategory)) {
-      const updatedCategories = [...categories, newCategory].sort();
-      setCategories(updatedCategories);
-      localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updatedCategories));
-      form.setValue('category', newCategory, { shouldValidate: true });
-      window.dispatchEvent(new CustomEvent('categories-updated'));
+    const existingCategory = categories?.find(c => c.name.toLowerCase() === newCategoryName.toLowerCase().trim());
+    if (existingCategory) {
+       toast({
+         variant: 'destructive',
+         title: 'Categoria já existe',
+         description: `A categoria "${newCategoryName}" já está cadastrada.`,
+       });
+       return;
     }
-    setIsCategoryModalOpen(false);
+
+    try {
+      await addDoc(collection(firestore, 'categories'), { name: newCategoryName.trim() });
+      toast({
+        title: 'Categoria Adicionada',
+        description: `A categoria "${newCategoryName}" foi adicionada com sucesso.`,
+      });
+      form.setValue('category', newCategoryName.trim(), { shouldValidate: true });
+      setIsCategoryModalOpen(false);
+    } catch (error) {
+      console.error('Error adding category:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Adicionar Categoria',
+        description: 'Não foi possível adicionar a nova categoria.',
+      });
+    }
   };
 
   useEffect(() => {
@@ -82,8 +87,7 @@ export default function AddVideoForm() {
 
     if (state.title && state.youtubeUrl && state.category && state.youtubeUrl !== processedUrl.current) {
       processedUrl.current = state.youtubeUrl;
-      const newVideo: Video = {
-        id: new Date().toISOString(),
+      const newVideo: Omit<Video, 'id' | 'createdAt'> = {
         youtubeUrl: state.youtubeUrl,
         title: state.title,
         summary: '', // O resumo estará vazio inicialmente
@@ -92,28 +96,14 @@ export default function AddVideoForm() {
         scheduledAt: state.scheduledAt || undefined,
       };
 
-      try {
-        const storedVideos = JSON.parse(localStorage.getItem('videos') || '[]');
-        const updatedVideos = [newVideo, ...storedVideos];
-        localStorage.setItem('videos', JSON.stringify(updatedVideos));
-        
-        window.dispatchEvent(new CustomEvent('videos-updated'));
-        
-        toast({
-          title: 'Vídeo adicionado!',
-          description: `"${state.title}" foi salvo no catálogo.`,
-        });
+      addDocumentNonBlocking('videos', newVideo);
+      
+      toast({
+        title: 'Vídeo adicionado!',
+        description: `"${state.title}" foi salvo no catálogo.`,
+      });
 
-        form.reset();
-
-      } catch (error) {
-        console.error('Failed to save video to localStorage', error);
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao Salvar',
-          description: 'Não foi possível salvar o vídeo localmente.',
-        });
-      }
+      form.reset();
     }
   }, [state, form]);
 
@@ -142,16 +132,16 @@ export default function AddVideoForm() {
                 <FormItem>
                   <FormLabel>Categoria</FormLabel>
                   <div className="flex items-center gap-2">
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <Select onValueChange={field.onChange} value={field.value || ''} disabled={categoriesLoading}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma categoria" />
+                          <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Selecione uma categoria"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
+                        {categories?.map((category) => (
+                          <SelectItem key={category.id} value={category.name}>
+                            {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -160,8 +150,7 @@ export default function AddVideoForm() {
                       <PlusCircle className="h-4 w-4" />
                     </Button>
                   </div>
-                   {/* This hidden input ensures the 'category' value is included in the form submission */}
-                  <input type="hidden" name={field.name} value={field.value || ''} />
+                   <input type="hidden" name={field.name} value={field.value || ''} />
                   <FormMessage />
                 </FormItem>
               )}

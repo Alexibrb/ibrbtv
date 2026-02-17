@@ -20,6 +20,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useEffect, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
 import AddCategoryDialog from '../category/AddCategoryDialog';
+import { useFirebase, useCollection, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, WithId } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { toast } from '@/hooks/use-toast';
+
 
 const formSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório.'),
@@ -28,14 +32,13 @@ const formSchema = z.object({
   scheduledAt: z.string().optional(),
 });
 
-const CATEGORIES_STORAGE_KEY = 'video_categories';
-const defaultCategories = ["Domingo de Manhã", "Estudo", "Evento Especial"];
+type Category = { name: string };
 
 type EditVideoDialogProps = {
-  video: Video | null;
+  video: WithId<Video> | null;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSave: (updatedVideo: Video) => void;
+  onSave: (updatedVideo: WithId<Video>) => void;
 };
 
 export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }: EditVideoDialogProps) {
@@ -48,47 +51,24 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
       scheduledAt: '',
     }
   });
-  const [categories, setCategories] = useState<string[]>(defaultCategories);
+
+  const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  const loadCategories = () => {
-    try {
-      const storedCategories = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      if (storedCategories) {
-        const parsed = JSON.parse(storedCategories);
-        if (Array.isArray(parsed)) {
-          setCategories(parsed.filter(c => typeof c === 'string'));
-        }
-      } else {
-        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(defaultCategories));
-      }
-    } catch (error) {
-      console.error('Failed to load categories', error);
-      setCategories(defaultCategories);
-    }
-  };
-
-  useEffect(() => {
-    loadCategories();
-    window.addEventListener('categories-updated', loadCategories);
-    return () => {
-      window.removeEventListener('categories-updated', loadCategories);
-    };
-  }, []);
-
   const handleCategoryAdded = (newCategory: string) => {
-    if (!categories.includes(newCategory)) {
-      const updatedCategories = [...categories, newCategory].sort();
-      setCategories(updatedCategories);
-      localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updatedCategories));
-      form.setValue('category', newCategory, { shouldValidate: true });
+     if (newCategory.trim()) {
+      addDocumentNonBlocking('categories', { name: newCategory.trim() });
+      toast({
+        title: 'Categoria adicionada!',
+        description: `A categoria "${newCategory}" foi salva.`,
+      });
+      form.setValue('category', newCategory.trim(), { shouldValidate: true });
     }
     setIsCategoryModalOpen(false);
   };
 
   useEffect(() => {
     if (video) {
-      // Format for datetime-local input which needs 'YYYY-MM-DDTHH:MM'
       const scheduledValue = video.scheduledAt ? video.scheduledAt.substring(0, 16) : '';
       form.reset({
         title: video.title,
@@ -101,12 +81,20 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     if (video) {
-      onSave({
+      const updatedVideoData = {
         ...video,
         title: data.title,
         summary: data.summary || '',
         category: data.category,
         scheduledAt: data.scheduledAt || undefined,
+      };
+      // remove id before sending to firestore
+      const { id, ...videoData } = updatedVideoData;
+      setDocumentNonBlocking(`videos/${video.id}`, videoData);
+      onSave(updatedVideoData);
+      toast({
+        title: 'Vídeo atualizado!',
+        description: 'As informações do vídeo foram salvas.',
       });
     }
   };
@@ -157,16 +145,16 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
                     <FormItem>
                       <FormLabel>Categoria</FormLabel>
                       <div className="flex items-center gap-2">
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <Select onValueChange={field.onChange} value={field.value || ''} disabled={categoriesLoading}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma categoria" />
+                              <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Selecione uma categoria"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
+                            {categories?.map((category) => (
+                              <SelectItem key={category.id} value={category.name}>
+                                {category.name}
                               </SelectItem>
                             ))}
                           </SelectContent>

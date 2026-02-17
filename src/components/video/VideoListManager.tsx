@@ -11,100 +11,53 @@ import EditVideoDialog from './EditVideoDialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '../ui/badge';
+import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, WithId } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 
-const CATEGORIES_STORAGE_KEY = 'video_categories';
+
 const ALL_CATEGORIES = 'Todas as Categorias';
+type Category = { name: string };
 
 export default function VideoListManager() {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [videoToEdit, setVideoToEdit] = useState<Video | null>(null);
+  const { firestore } = useFirebase();
+  const [videoToEdit, setVideoToEdit] = useState<WithId<Video> | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
-  // New states for filtering
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
-  const [categories, setCategories] = useState<string[]>([ALL_CATEGORIES]);
 
-  const loadVideosAndCategories = () => {
-    setIsLoading(true);
-    try {
-      const storedVideosRaw = localStorage.getItem('videos');
-      const loadedVideos = storedVideosRaw ? JSON.parse(storedVideosRaw) : [];
-      setVideos(loadedVideos);
+  const videosQuery = useMemoFirebase(
+    () => query(collection(firestore, 'videos'), orderBy('createdAt', 'desc')),
+    [firestore]
+  );
+  const { data: videos, loading: videosLoading } = useCollection<Video>(videosQuery.path);
+  
+  const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 
-      const storedCategoriesRaw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      const storedCategories = storedCategoriesRaw ? JSON.parse(storedCategoriesRaw) : [];
-      
-      const videoCategories = loadedVideos
-        .map((v: Video) => v.category)
-        .filter((c: string | undefined): c is string => !!c);
+  const categories = useMemo(() => {
+    const uniqueCategories = [...new Set(categoriesData?.map(c => c.name) || [])].sort();
+    return [ALL_CATEGORIES, ...uniqueCategories];
+  }, [categoriesData]);
 
-      const uniqueCategories = [...new Set([...storedCategories, ...videoCategories])].sort();
-      setCategories([ALL_CATEGORIES, ...uniqueCategories]);
-
-    } catch (error) {
-      console.error('Failed to load data from localStorage', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadVideosAndCategories();
-    window.addEventListener('videos-updated', loadVideosAndCategories);
-    window.addEventListener('categories-updated', loadVideosAndCategories);
-    return () => {
-      window.removeEventListener('videos-updated', loadVideosAndCategories);
-      window.removeEventListener('categories-updated', loadVideosAndCategories);
-    };
-  }, []);
-
-  const handleOpenEditDialog = (video: Video) => {
+  const handleOpenEditDialog = (video: WithId<Video>) => {
     setVideoToEdit(video);
     setIsEditDialogOpen(true);
   };
 
-  const handleSave = (updatedVideo: Video) => {
-    try {
-      const updatedVideos = videos.map((video) =>
-        video.id === updatedVideo.id ? updatedVideo : video
-      );
-      localStorage.setItem('videos', JSON.stringify(updatedVideos));
-      setVideos(updatedVideos);
-
-      window.dispatchEvent(new CustomEvent('videos-updated'));
-      
-      toast({
-        title: 'Vídeo atualizado!',
-        description: 'As informações do vídeo foram salvas.',
-      });
-      setIsEditDialogOpen(false);
-      setVideoToEdit(null);
-    } catch (error) {
-      console.error('Failed to update video in localStorage', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao Salvar',
-        description: 'Não foi possível salvar as alterações.',
-      });
-    }
+  const handleSave = () => {
+    // This will be handled by EditVideoDialog now
+    setIsEditDialogOpen(false);
+    setVideoToEdit(null);
   };
 
   const handleDelete = (videoId: string) => {
     try {
-      const updatedVideos = videos.filter((video) => video.id !== videoId);
-      localStorage.setItem('videos', JSON.stringify(updatedVideos));
-      setVideos(updatedVideos);
-
-      window.dispatchEvent(new CustomEvent('videos-updated'));
-      
+      deleteDocumentNonBlocking(`videos/${videoId}`);
       toast({
         title: 'Vídeo removido!',
         description: 'O vídeo foi removido do catálogo.',
       });
     } catch (error) {
-      console.error('Failed to delete video from localStorage', error);
+      console.error('Failed to delete video', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao remover',
@@ -114,6 +67,7 @@ export default function VideoListManager() {
   };
 
   const filteredVideos = useMemo(() => {
+    if (!videos) return [];
     return videos
       .filter(video => {
         if (selectedCategory === ALL_CATEGORIES) return true;
@@ -122,8 +76,7 @@ export default function VideoListManager() {
       .filter(video => {
         if (!searchTerm) return true;
         return video.title.toLowerCase().includes(searchTerm.toLowerCase());
-      })
-      .sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
+      });
   }, [videos, selectedCategory, searchTerm]);
 
   return (
@@ -139,9 +92,9 @@ export default function VideoListManager() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full sm:w-1/2"
             />
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
               <SelectTrigger className="w-full sm:w-1/2">
-                <SelectValue placeholder="Filtrar por categoria" />
+                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Filtrar por categoria"} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map(category => (
@@ -152,7 +105,7 @@ export default function VideoListManager() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {videosLoading ? (
             <p>Carregando vídeos...</p>
           ) : filteredVideos.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">Nenhum vídeo encontrado com os filtros atuais.</p>
