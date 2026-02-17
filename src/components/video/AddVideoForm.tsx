@@ -9,7 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { addVideoAction, type FormState } from '@/app/actions';
 import type { Video } from '@/lib/types';
 import { useFirebase, addDocumentNonBlocking, WithId, useCollection } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, orderBy } from 'firebase/firestore';
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -33,7 +33,7 @@ export default function AddVideoForm() {
   const initialState: FormState = { title: null, summary: null, error: null };
   const [state, formAction] = useActionState(addVideoAction, initialState);
   const processedUrl = useRef('');
-  const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories');
+  const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories', orderBy('name'));
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -93,7 +93,7 @@ export default function AddVideoForm() {
         summary: '', // O resumo estará vazio inicialmente
         isLive: false,
         category: state.category,
-        scheduledAt: state.scheduledAt || undefined,
+        scheduledAt: state.scheduledAt || '',
       };
 
       addDocumentNonBlocking(firestore, 'videos', newVideo);
