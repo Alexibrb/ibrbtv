@@ -110,7 +110,7 @@ export default function VideoListManager() {
                 {filteredVideos.map((video) => (
                   <li key={video.id} className="grid grid-cols-[1fr_auto] items-center gap-4 p-3 rounded-lg border">
                     <div className="min-w-0">
-                       <p className="font-semibold truncate">{video.title}</p>
+                       <p className="font-semibold">{video.title}</p>
                        <p className="text-sm text-muted-foreground">{video.category} - {video.isLive ? 'AO VIVO' : 'Replay'}</p>
                        {video.scheduledAt && (
                          <Badge variant="outline" className="mt-2 text-xs">

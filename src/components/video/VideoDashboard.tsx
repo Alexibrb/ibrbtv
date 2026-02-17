@@ -235,7 +235,7 @@ export default function VideoDashboard() {
                         )}
                       </div>
                       <div className="min-w-0 flex-grow">
-                        <p className="font-semibold truncate">{video.title}</p>
+                        <p className="font-semibold">{video.title}</p>
                         {video.isLive && (
                           <Badge variant="destructive" className="mt-1 animate-pulse">
                             AO VIVO
