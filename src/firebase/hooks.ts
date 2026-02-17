@@ -1,19 +1,15 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import {
   collection,
   onSnapshot,
   query,
-  where,
   doc,
-  getDoc,
-  getDocs,
-  Query,
-  DocumentReference,
   QueryConstraint,
 } from 'firebase/firestore';
 import { useFirestore } from './provider';
+import { errorEmitter } from './error-emitter';
+import { FirestorePermissionError } from './errors';
 
 export type WithId<T> = T & { id: string };
 
@@ -25,10 +21,15 @@ export function useCollection<T>(path: string, ...queryConstraints: QueryConstra
 
   const q = useMemo(
     () => query(collection(firestore, path), ...queryConstraints),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [firestore, path, JSON.stringify(queryConstraints)]
   );
 
   useEffect(() => {
+    if (!path) {
+      setLoading(false);
+      return;
+    };
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -37,16 +38,22 @@ export function useCollection<T>(path: string, ...queryConstraints: QueryConstra
         );
         setData(documents);
         setLoading(false);
+        setError(null);
       },
       (err) => {
         console.error(err);
         setError(err);
         setLoading(false);
+        const permissionError = new FirestorePermissionError({
+            path: path,
+            operation: 'list',
+          });
+        errorEmitter.emit('permission-error', permissionError);
       }
     );
 
     return () => unsubscribe();
-  }, [q]);
+  }, [q, path]);
 
   return { data, loading, error };
 }
@@ -57,9 +64,16 @@ export function useDoc<T>(path: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const docRef = useMemo(() => doc(firestore, path), [firestore, path]);
+  const docRef = useMemo(() => {
+    if (!path) return null;
+    return doc(firestore, path);
+  }, [firestore, path]);
 
   useEffect(() => {
+    if (!docRef) {
+      setLoading(false);
+      return;
+    };
     const unsubscribe = onSnapshot(
       docRef,
       (doc) => {
@@ -69,16 +83,22 @@ export function useDoc<T>(path: string) {
           setData(null);
         }
         setLoading(false);
+        setError(null);
       },
       (err) => {
         console.error(err);
         setError(err);
         setLoading(false);
+        const permissionError = new FirestorePermissionError({
+            path: path,
+            operation: 'get',
+          });
+        errorEmitter.emit('permission-error', permissionError);
       }
     );
 
     return () => unsubscribe();
-  }, [docRef]);
+  }, [docRef, path]);
 
   return { data, loading, error };
 }
