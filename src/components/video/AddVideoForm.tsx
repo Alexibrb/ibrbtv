@@ -96,7 +96,7 @@ export default function AddVideoForm() {
         scheduledAt: state.scheduledAt || undefined,
       };
 
-      addDocumentNonBlocking('videos', newVideo);
+      addDocumentNonBlocking(firestore, 'videos', newVideo);
       
       toast({
         title: 'Vídeo adicionado!',
@@ -105,7 +105,7 @@ export default function AddVideoForm() {
 
       form.reset();
     }
-  }, [state, form]);
+  }, [state, form, firestore]);
 
   return (
     <div className="space-y-6">

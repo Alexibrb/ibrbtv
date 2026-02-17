@@ -42,6 +42,7 @@ type EditVideoDialogProps = {
 };
 
 export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }: EditVideoDialogProps) {
+  const { firestore } = useFirebase();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -57,7 +58,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
 
   const handleCategoryAdded = (newCategory: string) => {
      if (newCategory.trim()) {
-      addDocumentNonBlocking('categories', { name: newCategory.trim() });
+      addDocumentNonBlocking(firestore, 'categories', { name: newCategory.trim() });
       toast({
         title: 'Categoria adicionada!',
         description: `A categoria "${newCategory}" foi salva.`,
@@ -90,7 +91,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
       };
       // remove id before sending to firestore
       const { id, ...videoData } = updatedVideoData;
-      setDocumentNonBlocking(`videos/${video.id}`, videoData);
+      setDocumentNonBlocking(firestore, `videos/${video.id}`, videoData);
       onSave(updatedVideoData);
       toast({
         title: 'Vídeo atualizado!',
