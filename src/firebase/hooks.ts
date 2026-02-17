@@ -40,8 +40,7 @@ export function useCollection<T>(path: string, ...queryConstraints: QueryConstra
         setLoading(false);
         setError(null);
       },
-      (err) => {
-        console.error(err);
+      async (err) => {
         setError(err);
         setLoading(false);
         const permissionError = new FirestorePermissionError({
@@ -85,8 +84,7 @@ export function useDoc<T>(path: string) {
         setLoading(false);
         setError(null);
       },
-      (err) => {
-        console.error(err);
+      async (err) => {
         setError(err);
         setLoading(false);
         const permissionError = new FirestorePermissionError({

@@ -22,8 +22,7 @@ export const addDocumentNonBlocking = (firestore: Firestore, path: string, data:
         createdAt: serverTimestamp(),
     };
     const collectionRef = collection(firestore, path);
-    addDoc(collectionRef, dataWithTimestamp).catch((error) => {
-        console.error(`Error adding document to ${path}:`, error);
+    addDoc(collectionRef, dataWithTimestamp).catch(async (error) => {
         const permissionError = new FirestorePermissionError({
             path: collectionRef.path,
             operation: 'create',
@@ -35,8 +34,7 @@ export const addDocumentNonBlocking = (firestore: Firestore, path: string, data:
 
 export const setDocumentNonBlocking = (firestore: Firestore, path: string, data: any, options?: SetOptions) => {
   const docRef = doc(firestore, path);
-  setDoc(docRef, data, { merge: true, ...options }).catch((error) => {
-    console.error(`Error setting document at ${path}:`, error);
+  setDoc(docRef, data, { merge: true, ...options }).catch(async (error) => {
     const permissionError = new FirestorePermissionError({
         path: docRef.path,
         operation: 'update', // With merge:true it's effectively an update
@@ -48,8 +46,7 @@ export const setDocumentNonBlocking = (firestore: Firestore, path: string, data:
 
 export const deleteDocumentNonBlocking = (firestore: Firestore, path: string) => {
     const docRef = doc(firestore, path);
-    deleteDoc(docRef).catch((error) => {
-        console.error(`Error deleting document at ${path}:`, error);
+    deleteDoc(docRef).catch(async (error) => {
         const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'delete',
