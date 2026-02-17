@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import {
   Card,
@@ -27,6 +26,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +55,33 @@ export default function AdminLoginPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setError('Por favor, digite seu e-mail no campo acima para redefinir a senha.');
+      return;
+    }
+
+    setIsResetting(true);
+    setError(null);
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: 'Verifique seu e-mail',
+        description: 'Se sua conta existir, um link para redefinição de senha foi enviado.',
+      });
+    } catch (err: any) {
+      // Don't reveal if user exists. The generic message is safer.
+       toast({
+        title: 'Verifique seu e-mail',
+        description: 'Se sua conta existir, um link para redefinição de senha foi enviado.',
+      });
+      console.error('Firebase Password Reset Error:', err);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto flex h-[80vh] items-center justify-center">
       <Card className="w-full max-w-sm shadow-lg">
@@ -75,28 +102,39 @@ export default function AdminLoginPage() {
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isResetting}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Senha</Label>
+              <div className="flex items-center">
+                  <Label htmlFor="password">Senha</Label>
+                  <Button
+                      type="button"
+                      variant="link"
+                      className="ml-auto inline-block h-auto p-0 text-sm"
+                      onClick={handlePasswordReset}
+                      disabled={isLoading || isResetting || !email}
+                  >
+                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Esqueceu a senha?"}
+                  </Button>
+              </div>
               <Input 
                 id="password" 
                 type="password" 
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isResetting}
               />
             </div>
              {error && (
               <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
-                <AlertTitle>Falha no Login</AlertTitle>
+                <AlertTitle>Falha na Operação</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || isResetting}>
               {isLoading ? (
                 <Loader2 className="animate-spin" />
               ) : (
