@@ -18,26 +18,21 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { Button } from '../ui/button';
-import { useFirebase, useCollection, useMemoFirebase, WithId } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, WithId } from '@/firebase';
+import { orderBy } from 'firebase/firestore';
 
 
 const ALL_CATEGORIES = 'Todos';
 type Category = { name: string };
 
 export default function VideoDashboard() {
-  const { firestore } = useFirebase();
   const [currentVideo, setCurrentVideo] = useState<WithId<Video> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
 
-  const videosQuery = useMemoFirebase(
-    () => query(collection(firestore, 'videos'), orderBy('createdAt', 'desc')),
-    [firestore]
-  );
-  const { data: allVideos, loading: videosLoading } = useCollection<Video>(videosQuery.path);
+  const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
 
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 

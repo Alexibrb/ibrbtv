@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ import EditVideoDialog from './EditVideoDialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '../ui/badge';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, WithId } from '@/firebase';
+import { deleteDoc, doc, orderBy } from 'firebase/firestore';
 
 
 const ALL_CATEGORIES = 'Todas as Categorias';
@@ -25,11 +25,7 @@ export default function VideoListManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
 
-  const videosQuery = useMemoFirebase(
-    () => query(collection(firestore, 'videos'), orderBy('createdAt', 'desc')),
-    [firestore]
-  );
-  const { data: videos, loading: videosLoading } = useCollection<Video>(videosQuery.path);
+  const { data: videos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
   
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 
@@ -43,15 +39,14 @@ export default function VideoListManager() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSave = () => {
-    // This will be handled by EditVideoDialog now
+  const handleSave = (updatedVideo: WithId<Video>) => {
     setIsEditDialogOpen(false);
     setVideoToEdit(null);
   };
 
-  const handleDelete = (videoId: string) => {
+  const handleDelete = async (videoId: string) => {
     try {
-      deleteDocumentNonBlocking(`videos/${videoId}`);
+      await deleteDoc(doc(firestore, 'videos', videoId));
       toast({
         title: 'Vídeo removido!',
         description: 'O vídeo foi removido do catálogo.',
