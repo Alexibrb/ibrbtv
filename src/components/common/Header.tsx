@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { UserCog } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
 import { ThemeToggle } from './ThemeToggle';
 import { useDoc } from '@/firebase';
 import { Skeleton } from '../ui/skeleton';
@@ -24,7 +22,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-52 items-center">
+      <div className="container flex h-52 items-center justify-between">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center space-x-2">
             {loading ? (
@@ -41,13 +39,7 @@ export function Header() {
             )}
           </Link>
         </div>
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          <Button asChild>
-            <Link href="/admin/login">
-              <UserCog />
-              <span>Admin</span>
-            </Link>
-          </Button>
+        <div className="flex items-center space-x-4">
           <ThemeToggle />
         </div>
       </div>
