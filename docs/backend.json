@@ -49,6 +49,20 @@
         }
       },
       "required": ["name"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Represents application-wide settings.",
+      "type": "object",
+      "properties": {
+        "logoUrl": {
+          "type": "string",
+          "description": "The URL for the application logo."
+        }
+      },
+      "required": [
+        "logoUrl"
+      ]
     }
   },
   "auth": {
@@ -66,6 +80,12 @@
         "$ref": "#/backend/entities/Category"
       },
       "description": "Stores video category documents."
+    },
+    "/settings/config": {
+      "schema": {
+        "$ref": "#/backend/entities/Settings"
+      },
+      "description": "Stores application configuration, like the logo URL. This is a singleton document."
     }
   }
 }

@@ -5,13 +5,16 @@ import VideoListManager from '@/components/video/VideoListManager';
 import { useCollection } from '@/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import LogoSettingsForm from '@/components/settings/LogoSettingsForm';
 
 export default function AddVideoPage() {
   const { data: categories, loading, error } = useCollection('categories');
 
   return (
-    <div className="container mx-auto max-w-2xl px-4 py-8">
-      <Card className="shadow-lg mb-8">
+    <div className="container mx-auto max-w-2xl px-4 py-8 space-y-8">
+      <LogoSettingsForm />
+      
+      <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Teste de Conexão com o Banco de Dados</CardTitle>
         </CardHeader>
