@@ -20,8 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useEffect, useState } from 'react';
 import { PlusCircle } from 'lucide-react';
 import AddCategoryDialog from '../category/AddCategoryDialog';
-import { useFirebase, useCollection, useMemoFirebase, setDocumentNonBlocking, WithId } from '@/firebase';
-import { collection, query, orderBy, addDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, setDocumentNonBlocking, WithId, addDocumentNonBlocking } from '@/firebase';
+import { orderBy } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
 
@@ -56,9 +56,9 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
   const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories', orderBy('name'));
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  const handleCategoryAdded = async (newCategory: string) => {
+  const handleCategoryAdded = (newCategory: string) => {
      if (newCategory.trim()) {
-      await addDoc(collection(firestore, 'categories'), { name: newCategory.trim() });
+      addDocumentNonBlocking(firestore, 'categories', { name: newCategory.trim() });
       toast({
         title: 'Categoria adicionada!',
         description: `A categoria "${newCategory}" foi salva.`,

@@ -45,7 +45,7 @@ export default function AddVideoForm() {
     },
   });
 
-  const handleCategoryAdded = async (newCategoryName: string) => {
+  const handleCategoryAdded = (newCategoryName: string) => {
     if (newCategoryName.trim() === '') return;
 
     const existingCategory = categories?.find(c => c.name.toLowerCase() === newCategoryName.toLowerCase().trim());
@@ -57,23 +57,16 @@ export default function AddVideoForm() {
        });
        return;
     }
-
-    try {
-      await addDoc(collection(firestore, 'categories'), { name: newCategoryName.trim() });
-      toast({
-        title: 'Categoria Adicionada',
-        description: `A categoria "${newCategoryName}" foi adicionada com sucesso.`,
-      });
-      form.setValue('category', newCategoryName.trim(), { shouldValidate: true });
-      setIsCategoryModalOpen(false);
-    } catch (error) {
-      console.error('Error adding category:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao Adicionar Categoria',
-        description: 'Não foi possível adicionar a nova categoria.',
-      });
-    }
+    
+    // Non-blocking write
+    addDocumentNonBlocking(firestore, 'categories', { name: newCategoryName.trim() });
+    
+    toast({
+      title: 'Categoria Adicionada',
+      description: `A categoria "${newCategoryName}" foi adicionada com sucesso.`,
+    });
+    form.setValue('category', newCategoryName.trim(), { shouldValidate: true });
+    setIsCategoryModalOpen(false);
   };
 
   useEffect(() => {

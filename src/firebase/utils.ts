@@ -34,11 +34,16 @@ export const addDocumentNonBlocking = (firestore: Firestore, path: string, data:
 
 export const setDocumentNonBlocking = (firestore: Firestore, path: string, data: any, options?: SetOptions) => {
   const docRef = doc(firestore, path);
-  setDoc(docRef, data, { merge: true, ...options }).catch(async (error) => {
+  // Ensure server timestamps are used for updates
+  const dataWithTimestamp = {
+    ...data,
+    updatedAt: serverTimestamp(),
+  };
+  setDoc(docRef, dataWithTimestamp, { merge: true, ...options }).catch(async (error) => {
     const permissionError = new FirestorePermissionError({
         path: docRef.path,
         operation: 'update', // With merge:true it's effectively an update
-        requestResourceData: data,
+        requestResourceData: dataWithTimestamp,
       });
       errorEmitter.emit('permission-error', permissionError);
   });
