@@ -9,6 +9,7 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 export const metadata: Metadata = {
   title: 'I.B.R.B TV',
   description: 'Evangelizando para Cristo através de transmissões ao vivo e replays.',
+  manifest: '/manifest.json'
 };
 
 export default function RootLayout({
@@ -34,7 +35,6 @@ export default function RootLayout({
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171921" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#3B82F6" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
-        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={cn('font-body antialiased')}>
         <ThemeProvider
