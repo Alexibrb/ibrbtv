@@ -20,20 +20,20 @@ export function Header() {
   const logoUrl = settings?.logoUrl || fallbackLogoUrl;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-52 items-center justify-center">
+    <header className="w-full border-b bg-background">
+      <div className="container flex h-32 items-center justify-center">
         <div className="flex">
           <Link href="/" className="flex items-center space-x-2">
             {loading ? (
-              <Skeleton className="h-48 w-96" />
+              <Skeleton className="h-24 w-48" />
             ) : (
               <Image
                 src={logoUrl}
                 alt="I.B.R.B TV Logo"
-                width={400}
-                height={200}
+                width={200}
+                height={100}
                 priority
-                className="h-48 w-auto"
+                className="h-24 w-auto"
               />
             )}
           </Link>
