@@ -43,7 +43,8 @@ export default function AdminLoginPage() {
       router.push('/admin/add-video');
     } catch (err: any) {
       let friendlyMessage = 'Ocorreu um erro ao tentar fazer login.';
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      // Handles invalid credentials (user not found, wrong password)
+      if (err.code === 'auth/invalid-credential') {
         friendlyMessage = 'E-mail ou senha incorretos. Por favor, tente novamente.';
       } else if (err.code === 'auth/invalid-email') {
         friendlyMessage = 'O formato do e-mail é inválido.';
@@ -90,61 +91,4 @@ export default function AdminLoginPage() {
           <CardDescription>
             Faça login para gerenciar os vídeos.
           </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="admin@exemplo.com" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading || isResetting}
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                  <Label htmlFor="password">Senha</Label>
-                  <Button
-                      type="button"
-                      variant="link"
-                      className="ml-auto inline-block h-auto p-0 text-sm"
-                      onClick={handlePasswordReset}
-                      disabled={isLoading || isResetting || !email}
-                  >
-                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Esqueceu a senha?"}
-                  </Button>
-              </div>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading || isResetting}
-              />
-            </div>
-             {error && (
-              <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Falha na Operação</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={isLoading || isResetting}>
-              {isLoading ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <LogIn />
-              )}
-              Entrar
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+        </C
