@@ -50,7 +50,6 @@ export default function AdminLoginPage() {
         friendlyMessage = 'O formato do e-mail é inválido.';
       }
       setError(friendlyMessage);
-      console.error('Firebase Login Error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +76,6 @@ export default function AdminLoginPage() {
         title: 'Verifique seu e-mail',
         description: 'Se sua conta existir, um link para redefinição de senha foi enviado.',
       });
-      console.error('Firebase Password Reset Error:', err);
     } finally {
       setIsResetting(false);
     }
