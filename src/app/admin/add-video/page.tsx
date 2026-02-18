@@ -8,8 +8,14 @@ import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 export default function AddVideoPage() {
   const auth = useAuth();
@@ -38,8 +44,20 @@ export default function AddVideoPage() {
         </Button>
       </div>
       
-      <LogoSettingsForm />
-      <DefaultSummarySettingsForm />
+      <Accordion type="single" collapsible className="w-full border rounded-lg shadow-lg px-6">
+        <AccordionItem value="item-1" className="border-b-0">
+          <AccordionTrigger>
+            <h2 className="flex items-center text-xl font-semibold font-headline">
+              <Settings className="mr-3 h-6 w-6" />
+              Configurações Gerais
+            </h2>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-6 pt-4">
+            <LogoSettingsForm />
+            <DefaultSummarySettingsForm />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       
       <Card className="shadow-lg">
         <CardHeader>
