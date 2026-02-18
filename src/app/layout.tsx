@@ -25,6 +25,16 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=PT+Sans:wght@400;700&display=swap"
           rel="stylesheet"
         />
+        <meta name="application-name" content="I.B.R.B TV" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="I.B.R.B TV" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171921" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#3B82F6" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={cn('font-body antialiased')}>
         <ThemeProvider
