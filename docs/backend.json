@@ -58,6 +58,10 @@
         "logoUrl": {
           "type": "string",
           "description": "The URL for the application logo."
+        },
+        "defaultSummary": {
+          "type": "string",
+          "description": "The default summary text for new videos."
         }
       },
       "required": [

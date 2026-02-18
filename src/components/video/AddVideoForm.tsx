@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { toast } from '@/hooks/use-toast';
 import { addVideoAction, type FormState } from '@/app/actions';
 import type { Video } from '@/lib/types';
-import { useFirebase, addDocumentNonBlocking, WithId, useCollection } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, WithId, useCollection, useDoc } from '@/firebase';
 import { collection, addDoc, orderBy } from 'firebase/firestore';
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -27,6 +27,10 @@ const formSchema = z.object({
 });
 
 type Category = { name: string };
+type Settings = {
+  logoUrl: string;
+  defaultSummary?: string;
+};
 
 export default function AddVideoForm() {
   const { firestore } = useFirebase();
@@ -34,6 +38,7 @@ export default function AddVideoForm() {
   const [state, formAction] = useActionState(addVideoAction, initialState);
   const processedUrl = useRef('');
   const { data: categories, loading: categoriesLoading } = useCollection<Category>('categories', orderBy('name'));
+  const { data: settings } = useDoc<Settings>('settings/config');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -83,7 +88,7 @@ export default function AddVideoForm() {
       const newVideo: Omit<Video, 'id' | 'createdAt'> = {
         youtubeUrl: state.youtubeUrl,
         title: state.title,
-        summary: '', // O resumo estará vazio inicialmente
+        summary: settings?.defaultSummary || '',
         isLive: false,
         category: state.category,
         scheduledAt: state.scheduledAt || '',
@@ -98,7 +103,7 @@ export default function AddVideoForm() {
 
       form.reset();
     }
-  }, [state, form, firestore]);
+  }, [state, form, firestore, settings]);
 
   return (
     <div className="space-y-6">

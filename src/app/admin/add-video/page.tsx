@@ -3,6 +3,7 @@ import AddVideoForm from '@/components/video/AddVideoForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import VideoListManager from '@/components/video/VideoListManager';
 import LogoSettingsForm from '@/components/settings/LogoSettingsForm';
+import DefaultSummarySettingsForm from '@/components/settings/DefaultSummarySettingsForm';
 import { Button } from '@/components/ui/button';
 import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -38,6 +39,7 @@ export default function AddVideoPage() {
       </div>
       
       <LogoSettingsForm />
+      <DefaultSummarySettingsForm />
       
       <Card className="shadow-lg">
         <CardHeader>
