@@ -32,7 +32,6 @@ export default function VideoDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
-  const [shuffledPastVideos, setShuffledPastVideos] = useState<WithId<Video>[]>([]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -70,73 +69,73 @@ export default function VideoDashboard() {
     } else {
       setCurrentVideo(video);
     }
-  }, []);
+    
+    // When a video is selected, if it was in the "finished countdown" list,
+    // remove it so it moves to the main catalog on the next render.
+    if (finishedCountdownIds.includes(video.id)) {
+      setFinishedCountdownIds(prev => prev.filter(id => id !== video.id));
+    }
+  }, [finishedCountdownIds]);
 
   const { liveVideo, scheduledVideos, pastVideos, allVisibleVideos } = useMemo(() => {
     if (!allVideos) {
-        return { liveVideo: null, scheduledVideos: [], pastVideos: [], allVisibleVideos: [] };
+      return { liveVideo: null, scheduledVideos: [], pastVideos: [], allVisibleVideos: [] };
     }
 
     const live = allVideos.find(v => v.isLive) || null;
-    
-    // Separate videos that were scheduled and are now finished counting down
-    const availableNow = allVideos.filter(v => finishedCountdownIds.includes(v.id));
 
-    // Exclude live and "available now" videos from the main pool to avoid duplication
-    const specialVideoIds = new Set([
-        ...(live ? [live.id] : []),
-        ...availableNow.map(v => v.id)
-    ]);
-    const otherVideos = allVideos.filter(v => !specialVideoIds.has(v.id));
+    // Videos for the "Upcoming" card: future scheduled OR just became available
+    const upcomingOrAvailable = allVideos.filter(v => {
+      if (v.isLive) return false;
+      const isFuture = v.scheduledAt && new Date(v.scheduledAt) > now;
+      const isAvailable = finishedCountdownIds.includes(v.id);
+      return isFuture || isAvailable;
+    });
 
-    // Separate into scheduled and past from the remaining videos
-    const scheduled = otherVideos
-        .filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
-        .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+    // The rest are "past" videos for the main catalog
+    const upcomingOrAvailableIds = new Set(upcomingOrAvailable.map(v => v.id));
+    const past = allVideos.filter(v => v.id !== live?.id && !upcomingOrAvailableIds.has(v.id));
 
-    const past = otherVideos.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
-    
-    const basePastList = selectedCategory === ALL_CATEGORIES ? shuffledPastVideos : past;
-
-    let filteredScheduled = scheduled;
-    let filteredPast = basePastList;
-    let filteredAvailableNow = availableNow;
+    // Apply category and search term filters
+    let filteredUpcoming = upcomingOrAvailable;
+    let filteredPast = past;
 
     if (selectedCategory !== ALL_CATEGORIES) {
-        filteredScheduled = scheduled.filter(video => video.category === selectedCategory);
-        filteredPast = past.filter(video => video.category === selectedCategory);
-        filteredAvailableNow = availableNow.filter(video => video.category === selectedCategory);
+      filteredUpcoming = filteredUpcoming.filter(v => v.category === selectedCategory);
+      filteredPast = filteredPast.filter(v => v.category === selectedCategory);
     }
-    
     if (searchTerm) {
-        filteredScheduled = filteredScheduled.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
-        filteredPast = filteredPast.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
-        filteredAvailableNow = filteredAvailableNow.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
+      filteredUpcoming = filteredUpcoming.filter(v => v.title.toLowerCase().includes(searchTerm.toLowerCase()));
+      filteredPast = filteredPast.filter(v => v.title.toLowerCase().includes(searchTerm.toLowerCase()));
     }
 
-    // The final "past" list for rendering is the "available now" videos plus the rest of the past videos
-    const finalPastVideos = [...filteredAvailableNow, ...filteredPast];
+    // Sort the "Upcoming" list: available first, then by date
+    filteredUpcoming.sort((a, b) => {
+      const aIsAvailable = finishedCountdownIds.includes(a.id);
+      const bIsAvailable = finishedCountdownIds.includes(b.id);
+      if (aIsAvailable && !bIsAvailable) return -1;
+      if (!aIsAvailable && bIsAvailable) return 1;
+      return new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime();
+    });
+    
+    // Shuffle "past" videos only if "Todos" is selected
+    const finalPastVideos = selectedCategory === ALL_CATEGORIES
+      ? [...filteredPast].sort(() => Math.random() - 0.5)
+      : filteredPast; // Already sorted by Firestore query (createdAt desc)
 
     const allVisible = [
-        ...(live ? [live] : []),
-        ...finalPastVideos,
-        ...filteredScheduled,
-    ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); // Unique videos
+      ...(live ? [live] : []),
+      ...finalPastVideos,
+      ...filteredUpcoming,
+    ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
 
     return {
-        liveVideo: live,
-        scheduledVideos: filteredScheduled,
-        pastVideos: finalPastVideos, // This now includes availableNow videos at the top
-        allVisibleVideos: allVisible
+      liveVideo: live,
+      scheduledVideos: filteredUpcoming,
+      pastVideos: finalPastVideos,
+      allVisibleVideos: allVisible
     };
-
-  }, [allVideos, finishedCountdownIds, now, selectedCategory, searchTerm, shuffledPastVideos]);
-  
-  useEffect(() => {
-    // This logic creates the initial shuffled list for the "Todos" category
-    const past = allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now) && !finishedCountdownIds.includes(v.id)) || [];
-    setShuffledPastVideos([...past].sort(() => Math.random() - 0.5));
-  }, [allVideos, now, finishedCountdownIds]);
+  }, [allVideos, now, finishedCountdownIds, selectedCategory, searchTerm]);
   
   
   useEffect(() => {
@@ -159,13 +158,15 @@ export default function VideoDashboard() {
         return;
     }
 
+    // Auto-select logic
     if (allVisibleVideos.length > 0) {
         const live = allVisibleVideos.find(v => v.isLive);
         if (live) {
             handleSelectVideo(live);
             return;
         }
-        const firstPlayable = allVisibleVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
+        // Select from the 'past' list, not 'allVisible' to avoid auto-playing a scheduled video
+        const firstPlayable = pastVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
         if (firstPlayable) {
              handleSelectVideo(firstPlayable);
         } else {
@@ -174,7 +175,7 @@ export default function VideoDashboard() {
     } else {
         setCurrentVideo(null);
     }
-  }, [allVisibleVideos, currentVideo, now, searchParams, allVideos, videosLoading, categories, handleSelectVideo]);
+  }, [allVisibleVideos, pastVideos, currentVideo, now, searchParams, allVideos, videosLoading, categories, handleSelectVideo]);
 
 
   if (videosLoading || categoriesLoading) {
@@ -189,6 +190,8 @@ export default function VideoDashboard() {
 
   const renderVideoItem = (video: WithId<Video>) => {
     const isFinishedCountdown = finishedCountdownIds.includes(video.id);
+    
+    // This state is for videos in the "Upcoming" card that are now available
     if (isFinishedCountdown) {
       return (
         <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
@@ -202,6 +205,7 @@ export default function VideoDashboard() {
       );
     }
     
+    // This state is for future scheduled videos in the "Upcoming" card
     const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
     if (isScheduledFuture) {
       return (
@@ -220,6 +224,7 @@ export default function VideoDashboard() {
       );
     }
 
+    // This state is for regular, past videos in the main catalog
     return (
       <button
         key={video.id}
@@ -295,7 +300,7 @@ export default function VideoDashboard() {
                         Próximas Transmissões
                     </CardTitle>
                     <CardDescription>
-                        Vídeos agendados que começarão em breve.
+                        Vídeos agendados que começarão em breve ou que acabaram de ficar disponíveis.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -307,7 +312,7 @@ export default function VideoDashboard() {
                 </CardContent>
             </Card>
         )}
-        <Card className="shadow-lg">
+        <Card className="shadow-lg flex-1">
           <CardHeader>
              <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
              <div className="flex flex-col gap-4 pt-4 sm:flex-row">
@@ -329,11 +334,14 @@ export default function VideoDashboard() {
                 </Select>
              </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[50vh]">
+          <CardContent className="h-full flex flex-col">
+            <ScrollArea className="flex-1 h-[40vh] -mx-6 px-6">
               <div className="flex flex-col gap-4 pr-4">
                 {liveVideo && renderVideoItem(liveVideo)}
-                {pastVideos.length > 0 ? pastVideos.map(renderVideoItem) : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center">Nenhum vídeo nesta categoria.</p>)}
+                {pastVideos.length > 0 
+                  ? pastVideos.map(renderVideoItem) 
+                  : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-4">Nenhum vídeo nesta categoria.</p>)
+                }
               </div>
             </ScrollArea>
           </CardContent>
@@ -355,7 +363,7 @@ export function DashboardSkeleton() {
                 </div>
             </div>
             <div className="lg:col-span-1">
-                <Card className="h-[70vh]">
+                <Card className="h-full">
                     <CardHeader>
                         <Skeleton className="h-7 w-48" />
                         <div className="flex flex-col gap-4 pt-4 sm:flex-row">
