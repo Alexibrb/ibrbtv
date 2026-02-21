@@ -1,10 +1,11 @@
 'use client';
 
-import VideoDashboard from '@/components/video/VideoDashboard';
+import VideoDashboard, { DashboardSkeleton } from '@/components/video/VideoDashboard';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CategoryCounts } from '@/components/video/CategoryCounts';
+import { Suspense } from 'react';
 
 
 export default function WatchPage() {
@@ -19,7 +20,9 @@ export default function WatchPage() {
           </Button>
           <CategoryCounts />
        </div>
-      <VideoDashboard />
+       <Suspense fallback={<DashboardSkeleton />}>
+        <VideoDashboard />
+       </Suspense>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +33,7 @@ export default function VideoDashboard() {
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
   const [shuffledPastVideos, setShuffledPastVideos] = useState<WithId<Video>[]>([]);
+  const searchParams = useSearchParams();
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
 
@@ -96,24 +98,7 @@ export default function VideoDashboard() {
 
   const filteredVideos = liveVideo ? [liveVideo, ...filteredList] : filteredList;
 
-  useEffect(() => {
-    const isCurrentVideoVisible = currentVideo && filteredVideos.some(v => v.id === currentVideo.id);
-
-    if (filteredVideos.length > 0 && !isCurrentVideoVisible) {
-      const live = filteredVideos.find(v => v.isLive);
-      if (live) {
-        setCurrentVideo(live);
-      } else {
-        const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
-        setCurrentVideo(firstPlayable || null);
-      }
-    } else if (filteredVideos.length === 0) {
-        setCurrentVideo(null);
-    }
-  }, [filteredVideos, currentVideo, now]);
-
-
-  const handleSelectVideo = (video: WithId<Video>) => {
+  const handleSelectVideo = useCallback((video: WithId<Video>) => {
     if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
       try {
         const urlWithAutoplay = new URL(video.youtubeUrl);
@@ -125,7 +110,53 @@ export default function VideoDashboard() {
     } else {
       setCurrentVideo(video);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Wait until all data is ready.
+    if (videosLoading || !allVideos) {
+        return;
+    }
+
+    const videoIdFromUrl = searchParams.get('videoId');
+
+    // Priority 1: Handle video ID from URL
+    if (videoIdFromUrl) {
+        const videoFromUrl = allVideos.find(v => v.id === videoIdFromUrl);
+        if (videoFromUrl) {
+            // Only set if it's not already the current video
+            if (currentVideo?.id !== videoFromUrl.id) {
+                handleSelectVideo(videoFromUrl);
+            }
+            // Clean the URL to avoid re-selecting on a manual user refresh.
+            window.history.replaceState(null, '', '/watch');
+            return; // We've handled the selection, so we can exit.
+        }
+    }
+    
+    // Priority 2: Keep the current video if it's still visible in the filtered list
+    const isCurrentVideoVisible = currentVideo && filteredVideos.some(v => v.id === currentVideo.id);
+    if (isCurrentVideoVisible) {
+        return;
+    }
+
+    // Priority 3: Auto-select a new video if none is selected or the current one is filtered out
+    if (filteredVideos.length > 0) {
+        // A. Select live video if available
+        const live = filteredVideos.find(v => v.isLive);
+        if (live) {
+            setCurrentVideo(live);
+            return;
+        }
+        // B. Select the first playable video in the current list
+        const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
+        setCurrentVideo(firstPlayable || null);
+    } else {
+        // No videos to show
+        setCurrentVideo(null);
+    }
+}, [filteredVideos, currentVideo, now, searchParams, allVideos, videosLoading, handleSelectVideo]);
+
 
   if (videosLoading || categoriesLoading) {
     return <DashboardSkeleton />;
@@ -199,7 +230,7 @@ export default function VideoDashboard() {
                         <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-primary/50 bg-primary/5 p-3 text-left">
                             <p className="font-semibold text-card-foreground">{video.title}</p>
                             <Badge variant="default" className="mt-1">DISPONÍVEL AGORA</Badge>
-                            <Button onClick={() => window.location.reload()} size="sm" className="mt-2">
+                            <Button onClick={() => { window.location.href = `/watch?videoId=${video.id}`; }} size="sm" className="mt-2">
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Atualizar para assistir
                             </Button>
@@ -266,7 +297,7 @@ export default function VideoDashboard() {
   );
 }
 
-function DashboardSkeleton() {
+export function DashboardSkeleton() {
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-4">
