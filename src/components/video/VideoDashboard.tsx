@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,6 +34,8 @@ export default function VideoDashboard() {
   const [now, setNow] = useState(new Date());
   const [shuffledPastVideos, setShuffledPastVideos] = useState<WithId<Video>[]>([]);
   const searchParams = useSearchParams();
+  const router = useRouter();
+
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
 
@@ -55,6 +57,20 @@ export default function VideoDashboard() {
   const handleCountdownComplete = (videoId: string) => {
     setFinishedCountdownIds(prev => [...new Set([...prev, videoId])]);
   };
+  
+  const handleSelectVideo = useCallback((video: WithId<Video>) => {
+    if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
+      try {
+        const urlWithAutoplay = new URL(video.youtubeUrl);
+        urlWithAutoplay.searchParams.set('autoplay', '1');
+        setCurrentVideo({ ...video, youtubeUrl: urlWithAutoplay.toString() });
+      } catch (e) {
+        setCurrentVideo(video);
+      }
+    } else {
+      setCurrentVideo(video);
+    }
+  }, []);
 
   const { liveVideo, scheduledVideos, pastVideos, allVisibleVideos } = useMemo(() => {
     if (!allVideos) {
@@ -113,20 +129,7 @@ export default function VideoDashboard() {
     setShuffledPastVideos([...past].sort(() => Math.random() - 0.5));
   }, [allVideos, now]);
   
-  const handleSelectVideo = (video: WithId<Video>) => {
-    if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
-      try {
-        const urlWithAutoplay = new URL(video.youtubeUrl);
-        urlWithAutoplay.searchParams.set('autoplay', '1');
-        setCurrentVideo({ ...video, youtubeUrl: urlWithAutoplay.toString() });
-      } catch (e) {
-        setCurrentVideo(video);
-      }
-    } else {
-      setCurrentVideo(video);
-    }
-  };
-
+  
   useEffect(() => {
     if (videosLoading || !allVideos) return;
 
@@ -142,6 +145,7 @@ export default function VideoDashboard() {
         }
     }
     
+    // Don't auto-select if a video is already playing unless it disappeared from the visible list
     if (currentVideo && allVisibleVideos.some(v => v.id === currentVideo.id)) {
         return;
     }
@@ -149,25 +153,31 @@ export default function VideoDashboard() {
     if (allVisibleVideos.length > 0) {
         const live = allVisibleVideos.find(v => v.isLive);
         if (live) {
-            setCurrentVideo(live);
+            handleSelectVideo(live);
             return;
         }
         const firstPlayable = allVisibleVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
-        if (firstPlayable && currentVideo?.id !== firstPlayable.id) {
-            setCurrentVideo(firstPlayable);
-        } else if (!firstPlayable && allVisibleVideos.length > 0) {
-            setCurrentVideo(null);
+        if (firstPlayable) {
+             handleSelectVideo(firstPlayable);
+        } else {
+            setCurrentVideo(null); // Clear player if only scheduled videos are visible
         }
     } else {
         setCurrentVideo(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVisibleVideos, currentVideo, now, searchParams, allVideos, videosLoading, categories]);
+  }, [allVisibleVideos, currentVideo, now, searchParams, allVideos, videosLoading, categories, handleSelectVideo]);
 
 
   if (videosLoading || categoriesLoading) {
     return <DashboardSkeleton />;
   }
+
+  const handleWatchNow = (video: WithId<Video>) => {
+    const videoUrl = new URL(window.location.href);
+    videoUrl.searchParams.set('videoId', video.id);
+    router.push(videoUrl.toString(), { scroll: false });
+  };
+
 
   const videoList = [...scheduledVideos, ...pastVideos];
 
@@ -178,7 +188,7 @@ export default function VideoDashboard() {
         <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-left">
           <p className="font-semibold text-card-foreground">{video.title}</p>
           <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
-          <Button variant="destructive" onClick={() => handleSelectVideo(video)} size="sm" className="mt-2">
+          <Button variant="destructive" onClick={() => handleWatchNow(video)} size="sm" className="mt-2">
             <RefreshCw className="mr-2 h-4 w-4" />
             Assistir agora
           </Button>
