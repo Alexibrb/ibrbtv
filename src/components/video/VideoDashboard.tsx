@@ -78,15 +78,18 @@ export default function VideoDashboard() {
     }
 
     const live = allVideos.find(v => v.isLive) || null;
+    
+    // Separate videos that were scheduled and are now finished counting down
     const availableNow = allVideos.filter(v => finishedCountdownIds.includes(v.id));
 
+    // Exclude live and "available now" videos from the main pool to avoid duplication
     const specialVideoIds = new Set([
         ...(live ? [live.id] : []),
         ...availableNow.map(v => v.id)
     ]);
-
     const otherVideos = allVideos.filter(v => !specialVideoIds.has(v.id));
 
+    // Separate into scheduled and past from the remaining videos
     const scheduled = otherVideos
         .filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
         .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
@@ -97,37 +100,43 @@ export default function VideoDashboard() {
 
     let filteredScheduled = scheduled;
     let filteredPast = basePastList;
+    let filteredAvailableNow = availableNow;
 
     if (selectedCategory !== ALL_CATEGORIES) {
         filteredScheduled = scheduled.filter(video => video.category === selectedCategory);
         filteredPast = past.filter(video => video.category === selectedCategory);
+        filteredAvailableNow = availableNow.filter(video => video.category === selectedCategory);
     }
     
     if (searchTerm) {
         filteredScheduled = filteredScheduled.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
         filteredPast = filteredPast.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
+        filteredAvailableNow = filteredAvailableNow.filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()));
     }
+
+    // The final "past" list for rendering is the "available now" videos plus the rest of the past videos
+    const finalPastVideos = [...filteredAvailableNow, ...filteredPast];
 
     const allVisible = [
         ...(live ? [live] : []),
-        ...availableNow,
+        ...finalPastVideos,
         ...filteredScheduled,
-        ...filteredPast,
     ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i); // Unique videos
 
     return {
         liveVideo: live,
         scheduledVideos: filteredScheduled,
-        pastVideos: filteredPast,
+        pastVideos: finalPastVideos, // This now includes availableNow videos at the top
         allVisibleVideos: allVisible
     };
 
   }, [allVideos, finishedCountdownIds, now, selectedCategory, searchTerm, shuffledPastVideos]);
   
   useEffect(() => {
-    const past = allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now)) || [];
+    // This logic creates the initial shuffled list for the "Todos" category
+    const past = allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now) && !finishedCountdownIds.includes(v.id)) || [];
     setShuffledPastVideos([...past].sort(() => Math.random() - 0.5));
-  }, [allVideos, now]);
+  }, [allVideos, now, finishedCountdownIds]);
   
   
   useEffect(() => {
@@ -178,14 +187,11 @@ export default function VideoDashboard() {
     router.push(videoUrl.toString(), { scroll: false });
   };
 
-
-  const videoList = [...scheduledVideos, ...pastVideos];
-
   const renderVideoItem = (video: WithId<Video>) => {
     const isFinishedCountdown = finishedCountdownIds.includes(video.id);
     if (isFinishedCountdown) {
       return (
-        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-left">
+        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
           <p className="font-semibold text-card-foreground">{video.title}</p>
           <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
           <Button variant="destructive" onClick={() => handleWatchNow(video)} size="sm" className="mt-2">
@@ -208,7 +214,7 @@ export default function VideoDashboard() {
           <CountdownTimer
             targetDate={video.scheduledAt!}
             onComplete={() => handleCountdownComplete(video.id)}
-            className="w-full text-lg font-mono"
+            className="w-full text-lg font-mono text-foreground"
           />
         </div>
       );
@@ -280,8 +286,28 @@ export default function VideoDashboard() {
         </Card>
       </div>
 
-      <div className="lg:col-span-1">
-        <Card className="h-[70vh] shadow-lg">
+      <div className="lg:col-span-1 flex flex-col gap-8">
+        {scheduledVideos.length > 0 && (
+            <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                        <Clock className="h-6 w-6 text-primary" />
+                        Próximas Transmissões
+                    </CardTitle>
+                    <CardDescription>
+                        Vídeos agendados que começarão em breve.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="max-h-64">
+                        <div className="flex flex-col gap-4 pr-4">
+                            {scheduledVideos.map(renderVideoItem)}
+                        </div>
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+        )}
+        <Card className="shadow-lg">
           <CardHeader>
              <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
              <div className="flex flex-col gap-4 pt-4 sm:flex-row">
@@ -304,10 +330,10 @@ export default function VideoDashboard() {
              </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[calc(70vh-160px)]">
+            <ScrollArea className="h-[50vh]">
               <div className="flex flex-col gap-4 pr-4">
                 {liveVideo && renderVideoItem(liveVideo)}
-                {videoList.length > 0 ? videoList.map(renderVideoItem) : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center">Nenhum vídeo nesta categoria.</p>)}
+                {pastVideos.length > 0 ? pastVideos.map(renderVideoItem) : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center">Nenhum vídeo nesta categoria.</p>)}
               </div>
             </ScrollArea>
           </CardContent>
