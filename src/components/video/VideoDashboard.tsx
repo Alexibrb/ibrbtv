@@ -127,9 +127,9 @@ export default function VideoDashboard() {
             // Only set if it's not already the current video
             if (currentVideo?.id !== videoFromUrl.id) {
                 handleSelectVideo(videoFromUrl);
+                // Also set the category filter to match the video
+                setSelectedCategory(videoFromUrl.category);
             }
-            // Clean the URL to avoid re-selecting on a manual user refresh.
-            window.history.replaceState(null, '', '/watch');
             return; // We've handled the selection, so we can exit.
         }
     }
