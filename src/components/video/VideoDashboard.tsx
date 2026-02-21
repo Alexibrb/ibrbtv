@@ -75,8 +75,12 @@ export default function VideoDashboard() {
     // hydration mismatch errors from using Math.random(). It shuffles the
     // list of past videos to display them in a random order on each page load
     // or when the list of videos changes.
-    setShuffledPastVideos([...pastVideos].sort(() => Math.random() - 0.5));
-  }, [pastVideos]);
+    if (selectedCategory === ALL_CATEGORIES) {
+      setShuffledPastVideos([...pastVideos].sort(() => Math.random() - 0.5));
+    } else {
+      setShuffledPastVideos(pastVideos);
+    }
+  }, [pastVideos, selectedCategory]);
   
   const filteredList = useMemo(() => {
     const basePastList = selectedCategory === ALL_CATEGORIES ? shuffledPastVideos : pastVideos;
@@ -150,7 +154,11 @@ export default function VideoDashboard() {
         }
         // B. Select the first playable video in the current list
         const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
-        setCurrentVideo(firstPlayable || null);
+        if (firstPlayable && currentVideo?.id !== firstPlayable.id) {
+            setCurrentVideo(firstPlayable);
+        } else if (!firstPlayable) {
+            setCurrentVideo(null);
+        }
     } else {
         // No videos to show
         setCurrentVideo(null);
@@ -250,7 +258,7 @@ export default function VideoDashboard() {
                               <CountdownTimer
                                   targetDate={video.scheduledAt!}
                                   onComplete={() => handleCountdownComplete(video.id)}
-                                  className="w-full text-lg font-mono text-primary"
+                                  className="w-full text-lg font-mono text-destructive"
                               />
                           </div>
                       );
