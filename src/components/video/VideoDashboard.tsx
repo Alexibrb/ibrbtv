@@ -76,20 +76,23 @@ export default function VideoDashboard() {
     setShuffledPastVideos([...pastVideos].sort(() => Math.random() - 0.5));
   }, [pastVideos]);
   
-  const initialList = useMemo(() => [...scheduledVideos, ...shuffledPastVideos], [scheduledVideos, shuffledPastVideos]);
-
   const filteredList = useMemo(() => {
-    let list = initialList;
+    const basePastList = selectedCategory === ALL_CATEGORIES ? shuffledPastVideos : pastVideos;
+    
+    let list = [...scheduledVideos, ...basePastList];
+
     if (selectedCategory !== ALL_CATEGORIES) {
       list = list.filter(video => video.category === selectedCategory);
     }
+
     if (searchTerm) {
       list = list.filter(video => 
         video.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+
     return list;
-  }, [initialList, selectedCategory, searchTerm]);
+  }, [scheduledVideos, pastVideos, shuffledPastVideos, selectedCategory, searchTerm]);
 
   const filteredVideos = liveVideo ? [liveVideo, ...filteredList] : filteredList;
 
