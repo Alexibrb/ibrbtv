@@ -84,7 +84,7 @@ export default function VideoDashboard() {
     };
   }, [allVideos, now]);
 
-  const { liveVideo, pastVideos } = useMemo(() => {
+  const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
     // Filter catalog videos based on UI controls
     const filteredCatalogVideos = catalogVideos
       .filter(v => {
@@ -98,6 +98,7 @@ export default function VideoDashboard() {
 
     const live = filteredCatalogVideos.find(v => v.isLive) || null;
     const past = filteredCatalogVideos.filter(v => !v.isLive);
+    const newlyAvailableIds = new Set<string>();
     
     const finalPastVideos = (() => {
       if (selectedCategory !== ALL_CATEGORIES || searchTerm) {
@@ -110,6 +111,7 @@ export default function VideoDashboard() {
       const newlyAvailable = past.filter(v =>
         v.scheduledAt && new Date(v.scheduledAt).getTime() >= todayStart.getTime()
       );
+      newlyAvailable.forEach(v => newlyAvailableIds.add(v.id));
 
       const olderVideos = past.filter(v =>
         !v.scheduledAt || new Date(v.scheduledAt).getTime() < todayStart.getTime()
@@ -125,6 +127,7 @@ export default function VideoDashboard() {
     return {
       liveVideo: live,
       pastVideos: finalPastVideos,
+      newlyAvailableVideoIds: newlyAvailableIds,
     };
   }, [catalogVideos, selectedCategory, searchTerm]);
   
@@ -171,6 +174,7 @@ export default function VideoDashboard() {
 
 
   const renderVideoItem = (video: WithId<Video>) => {
+    const isNew = newlyAvailableVideoIds.has(video.id);
     return (
       <button
         key={video.id}
@@ -192,7 +196,10 @@ export default function VideoDashboard() {
           )}
         </div>
         <div className="min-w-0 flex-grow">
-          <p className="font-semibold">{video.title}</p>
+          <p className="font-semibold">
+            {isNew && !video.isLive && '✨ '}
+            {video.title}
+          </p>
           {video.isLive && (
             <Badge variant="destructive" className="mt-1 animate-pulse">
               AO VIVO
@@ -356,3 +363,5 @@ export function DashboardSkeleton() {
         </div>
     );
 }
+
+    
