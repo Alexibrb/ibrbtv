@@ -20,6 +20,7 @@ import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
 import { orderBy, doc, setDoc } from 'firebase/firestore';
+import { Button } from '../ui/button';
 
 
 const ALL_CATEGORIES = 'Todos';
@@ -32,6 +33,7 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [now, setNow] = useState(new Date());
+  const [completedTimers, setCompletedTimers] = useState<string[]>([]);
 
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
@@ -236,17 +238,26 @@ export default function VideoDashboard() {
                             {scheduledVideos.map(video => (
                                 <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
                                     <p className="font-semibold text-card-foreground">{video.title}</p>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Clock className="h-4 w-4" />
-                                    <span>Começa em:</span>
-                                    </div>
-                                    <CountdownTimer
-                                        targetDate={video.scheduledAt!}
-                                        onComplete={() => {
-                                            router.refresh();
-                                        }}
-                                        className="w-full text-lg font-mono text-foreground"
-                                    />
+                                    
+                                    {completedTimers.includes(video.id) ? (
+                                        <Button onClick={() => router.refresh()} className="w-full mt-2" variant="destructive">
+                                            Atualizar para assistir
+                                        </Button>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <Clock className="h-4 w-4" />
+                                                <span>Começa em:</span>
+                                            </div>
+                                            <CountdownTimer
+                                                targetDate={video.scheduledAt!}
+                                                onComplete={() => {
+                                                    setCompletedTimers(prev => [...prev, video.id]);
+                                                }}
+                                                className="w-full text-lg font-mono text-foreground"
+                                            />
+                                        </>
+                                    )}
                                 </div>
                             ))}
                         </div>
