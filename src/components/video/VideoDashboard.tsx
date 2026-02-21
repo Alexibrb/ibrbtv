@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,7 +26,6 @@ const ALL_CATEGORIES = 'Todos';
 type Category = { name: string };
 
 export default function VideoDashboard() {
-  const router = useRouter();
   const { firestore } = useFirebase();
   const [currentVideo, setCurrentVideo] = useState<WithId<Video> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
@@ -240,7 +238,7 @@ export default function VideoDashboard() {
                                     <p className="font-semibold text-card-foreground">{video.title}</p>
                                     
                                     {completedTimers.includes(video.id) ? (
-                                        <Button onClick={() => router.refresh()} className="w-full mt-2" variant="destructive">
+                                        <Button onClick={() => window.location.reload()} className="w-full mt-2" variant="destructive">
                                             Atualizar para assistir
                                         </Button>
                                     ) : (
