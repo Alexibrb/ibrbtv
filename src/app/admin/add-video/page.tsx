@@ -62,18 +62,6 @@ export default function AddVideoPage() {
       
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-3xl">Adicionar Novo Vídeo</CardTitle>
-          <CardDescription>
-            Insira a URL de um vídeo do YouTube para buscar o título e adicioná-lo ao catálogo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AddVideoForm />
-        </CardContent>
-      </Card>
-      
-      <Card className="shadow-lg">
-        <CardHeader>
           <CardTitle className="font-headline text-xl">Resumo do Catálogo</CardTitle>
           <CardDescription>
             Total de vídeos cadastrados por categoria.
@@ -81,6 +69,18 @@ export default function AddVideoPage() {
         </CardHeader>
         <CardContent>
           <CategoryCounts />
+        </CardContent>
+      </Card>
+      
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-3xl">Adicionar Novo Vídeo</CardTitle>
+          <CardDescription>
+            Insira a URL de um vídeo do YouTube para buscar o título e adicioná-lo ao catálogo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AddVideoForm />
         </CardContent>
       </Card>
       
