@@ -81,7 +81,7 @@ export default function VideoDashboard() {
     
     try {
       const videoRef = doc(firestore, 'videos', video.id);
-      await setDoc(videoRef, { category: video.finalCategory }, { merge: true });
+      await setDoc(videoRef, { category: video.finalCategory, finalCategory: '', scheduledAt: '' }, { merge: true });
       
       // After the successful update, the Firestore listener will update the state.
       // To ensure we select the right video after the re-render, we use a URL parameter.
@@ -194,7 +194,7 @@ export default function VideoDashboard() {
     } else {
         setCurrentVideo(null);
     }
-  }, [allVisibleCatalogVideos, scheduledVideos, currentVideo, videosLoading, allVideos, searchParams, categories]);
+  }, [allVisibleCatalogVideos, scheduledVideos, currentVideo, videosLoading, allVideos, searchParams, categories, handleSelectVideo]);
 
 
   if (videosLoading || categoriesLoading) {
@@ -205,7 +205,7 @@ export default function VideoDashboard() {
   const renderVideoItem = (video: WithId<Video>, isFromScheduledList: boolean) => {
     if (isFromScheduledList) {
       const isFinishedCountdown = finishedCountdownIds.includes(video.id);
-      const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
+      const isScheduledFuture = video.scheduledAt && new Date(video.scheduledAt) > now;
       
       const isAvailable = isFinishedCountdown || !isScheduledFuture;
 

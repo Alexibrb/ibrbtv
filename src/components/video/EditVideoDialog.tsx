@@ -90,7 +90,7 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
         summary: data.summary || '',
         scheduledAt: data.scheduledAt || '',
         category: isScheduled ? '_scheduled_' : data.category,
-        finalCategory: isScheduled ? data.category : '',
+        finalCategory: isScheduled ? data.category : undefined,
       };
       
       const updatedVideo: WithId<Video> = {
