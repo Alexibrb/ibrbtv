@@ -99,9 +99,28 @@ export default function VideoDashboard() {
     const live = filteredCatalogVideos.find(v => v.isLive) || null;
     const past = filteredCatalogVideos.filter(v => !v.isLive);
     
-    const finalPastVideos = (selectedCategory === ALL_CATEGORIES && !searchTerm)
-      ? [...past].sort(() => Math.random() - 0.5)
-      : past;
+    const finalPastVideos = (() => {
+      if (selectedCategory !== ALL_CATEGORIES || searchTerm) {
+        return past;
+      }
+      
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const newlyAvailable = past.filter(v =>
+        v.scheduledAt && new Date(v.scheduledAt).getTime() >= todayStart.getTime()
+      );
+
+      const olderVideos = past.filter(v =>
+        !v.scheduledAt || new Date(v.scheduledAt).getTime() < todayStart.getTime()
+      );
+      
+      newlyAvailable.sort((a, b) => new Date(b.scheduledAt!).getTime() - new Date(a.scheduledAt!).getTime());
+      
+      const shuffledOlderVideos = [...olderVideos].sort(() => Math.random() - 0.5);
+
+      return [...newlyAvailable, ...shuffledOlderVideos];
+    })();
 
     return {
       liveVideo: live,
