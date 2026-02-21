@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Play, Radio, Clock, RefreshCw } from 'lucide-react';
+import { Play, Radio, Clock } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import {
@@ -33,7 +33,6 @@ export default function VideoDashboard() {
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
   const searchParams = useSearchParams();
-  const router = useRouter();
 
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
@@ -77,66 +76,80 @@ export default function VideoDashboard() {
 
   const handleWatchNow = useCallback((video: WithId<Video>) => {
     handleSelectVideo(video);
+    // Set the category so the user sees the video they just clicked.
+    if (video.category) {
+        setSelectedCategory(video.category);
+    }
+    // Move the video from scheduled to past by removing it from the finished countdown list
     setFinishedCountdownIds(prev => prev.filter(id => id !== video.id));
   }, [handleSelectVideo]);
 
 
-  const { liveVideo, scheduledVideos, pastVideos, allVisibleVideos } = useMemo(() => {
+  const { liveVideo, scheduledVideos, pastVideos } = useMemo(() => {
     if (!allVideos) {
-      return { liveVideo: null, scheduledVideos: [], pastVideos: [], allVisibleVideos: [] };
+      return { liveVideo: null, scheduledVideos: [], pastVideos: [] };
     }
 
-    const live = allVideos.find(v => v.isLive) || null;
-
-    const upcomingOrAvailable = allVideos.filter(v => {
+    // This list is for the "Próximas Transmissões" card and should NOT be filtered by category.
+    const allUpcoming = allVideos.filter(v => {
       if (v.isLive) return false;
       const isFuture = v.scheduledAt && new Date(v.scheduledAt) > now;
       const isAvailable = finishedCountdownIds.includes(v.id);
       return isFuture || isAvailable;
     });
 
-    const upcomingOrAvailableIds = new Set(upcomingOrAvailable.map(v => v.id));
-    const past = allVideos.filter(v => v.id !== live?.id && !upcomingOrAvailableIds.has(v.id));
-
-    let filteredUpcoming = upcomingOrAvailable;
-    let filteredPast = past;
-
-    if (selectedCategory !== ALL_CATEGORIES) {
-      filteredUpcoming = filteredUpcoming.filter(v => v.category === selectedCategory);
-      filteredPast = filteredPast.filter(v => v.category === selectedCategory);
-    }
-    if (searchTerm) {
-      filteredUpcoming = filteredUpcoming.filter(v => v.title.toLowerCase().includes(searchTerm.toLowerCase()));
-      filteredPast = filteredPast.filter(v => v.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-
-    filteredUpcoming.sort((a, b) => {
+    // Sort all upcoming videos.
+    allUpcoming.sort((a, b) => {
       const aIsAvailable = finishedCountdownIds.includes(a.id);
       const bIsAvailable = finishedCountdownIds.includes(b.id);
       if (aIsAvailable && !bIsAvailable) return -1;
       if (!aIsAvailable && bIsAvailable) return 1;
-      return new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime();
+      if (a.scheduledAt && b.scheduledAt) {
+        return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+      }
+      return 0;
     });
-    
-    const finalPastVideos = selectedCategory === ALL_CATEGORIES
-      ? [...filteredPast].sort(() => Math.random() - 0.5)
-      : filteredPast.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const allVisible = [
-      ...(live ? [live] : []),
-      ...finalPastVideos,
-      ...filteredUpcoming,
-    ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+    const upcomingIds = new Set(allUpcoming.map(v => v.id));
+    
+    // All videos for the main catalog (live or past)
+    const catalogVideos = allVideos.filter(v => !upcomingIds.has(v.id));
+
+    // Filter them all based on UI controls
+    const filteredCatalogVideos = catalogVideos
+      .filter(v => {
+        if (selectedCategory === ALL_CATEGORIES) return true;
+        return v.category === selectedCategory;
+      })
+      .filter(v => {
+        if (!searchTerm) return true;
+        return v.title.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+
+    // Separate live from past from the *filtered* list
+    const live = filteredCatalogVideos.find(v => v.isLive) || null;
+    const past = filteredCatalogVideos.filter(v => !v.isLive);
+    
+    // Shuffle if 'All' is selected and no search term, otherwise sort by date.
+    const finalPastVideos = selectedCategory === ALL_CATEGORIES && !searchTerm
+      ? [...past].sort(() => Math.random() - 0.5)
+      : past.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return {
       liveVideo: live,
-      scheduledVideos: filteredUpcoming,
+      scheduledVideos: allUpcoming,
       pastVideos: finalPastVideos,
-      allVisibleVideos: allVisible
     };
   }, [allVideos, now, finishedCountdownIds, selectedCategory, searchTerm]);
   
   
+  const allVisibleCatalogVideos = useMemo(() => {
+    return [
+     ...(liveVideo ? [liveVideo] : []),
+     ...pastVideos,
+   ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+ }, [liveVideo, pastVideos]);
+
   useEffect(() => {
     if (videosLoading || !allVideos) return;
 
@@ -152,26 +165,28 @@ export default function VideoDashboard() {
         }
     }
     
-    if (currentVideo && allVisibleVideos.some(v => v.id === currentVideo.id)) {
+    // If there's a video playing and it's still in the visible list, don't change it
+    if (currentVideo && allVisibleCatalogVideos.some(v => v.id === currentVideo.id)) {
+        return;
+    }
+    
+    // If the list of visible videos is empty, but there are scheduled videos, do nothing to avoid clearing the player
+    if(allVisibleCatalogVideos.length === 0 && scheduledVideos.length > 0) {
         return;
     }
 
-    if (allVisibleVideos.length > 0) {
-        const live = allVisibleVideos.find(v => v.isLive);
+    // Auto-select a video only if nothing is playing or the playing video is no longer in the visible list
+    if (allVisibleCatalogVideos.length > 0) {
+        const live = allVisibleCatalogVideos.find(v => v.isLive);
         if (live) {
             handleSelectVideo(live);
-            return;
-        }
-        const firstPlayable = pastVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
-        if (firstPlayable) {
-             handleSelectVideo(firstPlayable);
-        } else if (scheduledVideos.length === 0) {
-            setCurrentVideo(null); 
+        } else {
+            handleSelectVideo(allVisibleCatalogVideos[0]);
         }
     } else {
         setCurrentVideo(null);
     }
-  }, [allVisibleVideos, pastVideos, currentVideo, now, searchParams, allVideos, videosLoading, categories, handleSelectVideo, scheduledVideos]);
+  }, [allVisibleCatalogVideos, scheduledVideos, currentVideo, videosLoading, allVideos, searchParams, handleSelectVideo, categories]);
 
 
   if (videosLoading || categoriesLoading) {
@@ -182,19 +197,21 @@ export default function VideoDashboard() {
   const renderVideoItem = (video: WithId<Video>) => {
     const isFinishedCountdown = finishedCountdownIds.includes(video.id);
     
+    // This is a video that has finished its countdown but hasn't been watched yet.
     if (isFinishedCountdown) {
       return (
         <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
           <p className="font-semibold text-card-foreground">{video.title}</p>
           <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
           <Button variant="destructive" onClick={() => handleWatchNow(video)} size="sm" className="mt-2">
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <Play className="mr-2 h-4 w-4" />
             Assistir agora
           </Button>
         </div>
       );
     }
     
+    // This is a video scheduled for the future.
     const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
     if (isScheduledFuture) {
       return (
@@ -213,6 +230,7 @@ export default function VideoDashboard() {
       );
     }
 
+    // This is a regular catalog video (live or past).
     return (
       <button
         key={video.id}
