@@ -16,6 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { CategoryCounts } from '@/components/video/CategoryCounts';
 
 export default function AddVideoPage() {
   const auth = useAuth();
@@ -70,6 +71,19 @@ export default function AddVideoPage() {
           <AddVideoForm />
         </CardContent>
       </Card>
+      
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline text-xl">Resumo do Catálogo</CardTitle>
+          <CardDescription>
+            Total de vídeos cadastrados por categoria.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CategoryCounts />
+        </CardContent>
+      </Card>
+      
       <VideoListManager />
     </div>
   );
