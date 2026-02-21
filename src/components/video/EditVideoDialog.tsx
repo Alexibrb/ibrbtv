@@ -71,10 +71,11 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
   useEffect(() => {
     if (video) {
       const scheduledValue = video.scheduledAt ? video.scheduledAt.substring(0, 16) : '';
+      const categoryForForm = video.category === '_scheduled_' ? (video.finalCategory || '') : (video.category || '');
       form.reset({
         title: video.title,
         summary: video.summary,
-        category: video.category || '',
+        category: categoryForForm,
         scheduledAt: scheduledValue,
       });
     }
@@ -82,17 +83,23 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     if (video) {
-      const updatedVideoData = {
-        ...video,
+      const isScheduled = !!data.scheduledAt;
+      
+      const payload: Partial<Video> = {
         title: data.title,
         summary: data.summary || '',
-        category: data.category,
         scheduledAt: data.scheduledAt || '',
+        category: isScheduled ? '_scheduled_' : data.category,
+        finalCategory: isScheduled ? data.category : '',
       };
-      // remove id before sending to firestore
-      const { id, ...videoData } = updatedVideoData;
-      setDocumentNonBlocking(firestore, `videos/${video.id}`, videoData);
-      onSave(updatedVideoData);
+      
+      const updatedVideo: WithId<Video> = {
+          ...video,
+          ...payload
+      };
+
+      setDocumentNonBlocking(firestore, `videos/${video.id}`, payload);
+      onSave(updatedVideo);
       toast({
         title: 'Vídeo atualizado!',
         description: 'As informações do vídeo foram salvas.',
