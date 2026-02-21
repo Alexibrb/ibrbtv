@@ -55,53 +55,49 @@ export default function VideoDashboard() {
   const handleCountdownComplete = (videoId: string) => {
     setFinishedCountdownIds(prev => [...new Set([...prev, videoId])]);
   };
-  
-  const liveVideo = allVideos?.find(v => v.isLive);
-  
-  const scheduledVideos = useMemo(() => 
-    allVideos
-      ?.filter(v => !v.isLive && v.scheduledAt && new Date(v.scheduledAt) > now)
-      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime()) || [],
-    [allVideos, now]
-  );
 
-  const pastVideos = useMemo(() =>
-    allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now)) || [],
-    [allVideos, now]
-  );
-  
-  useEffect(() => {
-    // This effect runs only on the client-side after hydration to prevent
-    // hydration mismatch errors from using Math.random(). It shuffles the
-    // list of past videos to display them in a random order on each page load
-    // or when the list of videos changes.
-    if (selectedCategory === ALL_CATEGORIES) {
-      setShuffledPastVideos([...pastVideos].sort(() => Math.random() - 0.5));
-    } else {
-      setShuffledPastVideos(pastVideos);
+  const { specialVideos, scrollableVideos, allVisibleVideos } = useMemo(() => {
+    if (!allVideos) {
+      return { specialVideos: [], scrollableVideos: [], allVisibleVideos: [] };
     }
-  }, [pastVideos, selectedCategory]);
-  
-  const filteredList = useMemo(() => {
-    const basePastList = selectedCategory === ALL_CATEGORIES ? shuffledPastVideos : pastVideos;
+
+    const live = allVideos.find(v => v.isLive);
+    const availableNow = allVideos.filter(v => finishedCountdownIds.includes(v.id));
+    const special = live ? [live, ...availableNow.filter(v => v.id !== live.id)] : availableNow;
+    const specialIds = new Set(special.map(v => v.id));
     
-    let list = [...scheduledVideos, ...basePastList];
+    const otherVideos = allVideos.filter(v => !specialIds.has(v.id));
+
+    const scheduled = otherVideos
+      .filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
+      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+
+    const past = otherVideos.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
+    
+    const basePastList = selectedCategory === ALL_CATEGORIES ? shuffledPastVideos : past;
+    
+    let scrollable = [...scheduled, ...basePastList];
 
     if (selectedCategory !== ALL_CATEGORIES) {
-      list = list.filter(video => video.category === selectedCategory);
+      scrollable = scrollable.filter(video => video.category === selectedCategory);
     }
-
     if (searchTerm) {
-      list = list.filter(video => 
+      scrollable = scrollable.filter(video => 
         video.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    return list;
-  }, [scheduledVideos, pastVideos, shuffledPastVideos, selectedCategory, searchTerm]);
-
-  const filteredVideos = liveVideo ? [liveVideo, ...filteredList] : filteredList;
-
+    const allVisible = [...special, ...scrollable];
+    
+    return { specialVideos: special, scrollableVideos: scrollable, allVisibleVideos: allVisible };
+  }, [allVideos, finishedCountdownIds, now, selectedCategory, searchTerm, shuffledPastVideos]);
+  
+  useEffect(() => {
+    // This effect runs only on the client-side after hydration.
+    const past = allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now)) || [];
+    setShuffledPastVideos([...past].sort(() => Math.random() - 0.5));
+  }, [allVideos, now]);
+  
   const handleSelectVideo = useCallback((video: WithId<Video>) => {
     if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
       try {
@@ -117,58 +113,108 @@ export default function VideoDashboard() {
   }, []);
 
   useEffect(() => {
-    // Wait until all data is ready.
-    if (videosLoading || !allVideos) {
-        return;
-    }
+    if (videosLoading || !allVideos) return;
 
     const videoIdFromUrl = searchParams.get('videoId');
-
-    // Priority 1: Handle video ID from URL
     if (videoIdFromUrl) {
         const videoFromUrl = allVideos.find(v => v.id === videoIdFromUrl);
-        if (videoFromUrl) {
-            // Only set if it's not already the current video
-            if (currentVideo?.id !== videoFromUrl.id) {
-                handleSelectVideo(videoFromUrl);
-                // Also set the category filter to match the video
-                setSelectedCategory(videoFromUrl.category);
-            }
-            return; // We've handled the selection, so we can exit.
+        if (videoFromUrl && currentVideo?.id !== videoFromUrl.id) {
+            handleSelectVideo(videoFromUrl);
+            setSelectedCategory(videoFromUrl.category);
+            return;
         }
     }
     
-    // Priority 2: Keep the current video if it's still visible in the filtered list
-    const isCurrentVideoVisible = currentVideo && filteredVideos.some(v => v.id === currentVideo.id);
-    if (isCurrentVideoVisible) {
+    if (currentVideo && allVisibleVideos.some(v => v.id === currentVideo.id)) {
         return;
     }
 
-    // Priority 3: Auto-select a new video if none is selected or the current one is filtered out
-    if (filteredVideos.length > 0) {
-        // A. Select live video if available
-        const live = filteredVideos.find(v => v.isLive);
+    if (allVisibleVideos.length > 0) {
+        const live = allVisibleVideos.find(v => v.isLive);
         if (live) {
             setCurrentVideo(live);
             return;
         }
-        // B. Select the first playable video in the current list
-        const firstPlayable = filteredVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
+        const firstPlayable = allVisibleVideos.find(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
         if (firstPlayable && currentVideo?.id !== firstPlayable.id) {
             setCurrentVideo(firstPlayable);
-        } else if (!firstPlayable) {
+        } else if (!firstPlayable && allVisibleVideos.length > 0) {
             setCurrentVideo(null);
         }
     } else {
-        // No videos to show
         setCurrentVideo(null);
     }
-}, [filteredVideos, currentVideo, now, searchParams, allVideos, videosLoading, handleSelectVideo]);
+  }, [allVisibleVideos, currentVideo, now, searchParams, allVideos, videosLoading, handleSelectVideo]);
 
 
   if (videosLoading || categoriesLoading) {
     return <DashboardSkeleton />;
   }
+
+  const renderVideoItem = (video: WithId<Video>) => {
+    const isFinishedCountdown = finishedCountdownIds.includes(video.id);
+    if (isFinishedCountdown) {
+      return (
+        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-left">
+          <p className="font-semibold text-card-foreground">{video.title}</p>
+          <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
+          <Button variant="destructive" onClick={() => { window.location.href = `/watch?videoId=${video.id}`; }} size="sm" className="mt-2">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Atualizar para assistir
+          </Button>
+        </div>
+      );
+    }
+    
+    const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
+    if (isScheduledFuture) {
+      return (
+        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
+          <p className="font-semibold text-card-foreground">{video.title}</p>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>Começa em:</span>
+          </div>
+          <CountdownTimer
+            targetDate={video.scheduledAt!}
+            onComplete={() => handleCountdownComplete(video.id)}
+            className="w-full text-lg font-mono"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={video.id}
+        onClick={() => handleSelectVideo(video)}
+        className={cn(
+          'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
+          currentVideo?.id === video.id && 'bg-success text-success-foreground hover:bg-success/90'
+        )}
+        aria-current={currentVideo?.id === video.id}
+      >
+        <div className={cn(
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
+          currentVideo?.id === video.id ? 'bg-white/20' : 'bg-primary/10 text-primary'
+        )}>
+          {video.isLive ? (
+            <Radio className="h-6 w-6 animate-pulse" />
+          ) : (
+            <Play className="h-6 w-6" />
+          )}
+        </div>
+        <div className="min-w-0 flex-grow">
+          <p className="font-semibold">{video.title}</p>
+          {video.isLive && (
+            <Badge variant="destructive" className="mt-1 animate-pulse">
+              AO VIVO
+            </Badge>
+          )}
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -205,8 +251,8 @@ export default function VideoDashboard() {
       </div>
 
       <div className="lg:col-span-1">
-        <Card className="shadow-lg">
-          <CardHeader>
+        <Card className="shadow-lg flex flex-col h-[70vh]">
+          <CardHeader className="flex-shrink-0">
              <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
              <div className="flex flex-col gap-4 pt-4 sm:flex-row">
                 <Input
@@ -227,75 +273,13 @@ export default function VideoDashboard() {
                 </Select>
              </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[46vh] pr-4">
-              <div className="flex flex-col gap-4">
-                {filteredVideos.map((video) => {
-                  const isFinishedCountdown = finishedCountdownIds.includes(video.id);
-
-                  if (isFinishedCountdown) {
-                    return (
-                        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-left">
-                            <p className="font-semibold text-card-foreground">{video.title}</p>
-                            <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
-                            <Button variant="destructive" onClick={() => { window.location.href = `/watch?videoId=${video.id}`; }} size="sm" className="mt-2">
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Atualizar para assistir
-                            </Button>
-                        </div>
-                    );
-                  }
-                  
-                  const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
-                  if (isScheduledFuture) {
-                      return (
-                          <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
-                              <p className="font-semibold text-card-foreground">{video.title}</p>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Clock className="h-4 w-4" />
-                                  <span>Começa em:</span>
-                              </div>
-                              <CountdownTimer
-                                  targetDate={video.scheduledAt!}
-                                  onComplete={() => handleCountdownComplete(video.id)}
-                                  className="w-full text-lg font-mono"
-                              />
-                          </div>
-                      );
-                  }
-
-
-                  return (
-                    <button
-                      key={video.id}
-                      onClick={() => handleSelectVideo(video)}
-                      className={cn(
-                        'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
-                        currentVideo?.id === video.id && 'bg-success text-success-foreground hover:bg-success/90'
-                      )}
-                      aria-current={currentVideo?.id === video.id}
-                    >
-                      <div className={cn(
-                        'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
-                        currentVideo?.id === video.id ? 'bg-white/20' : 'bg-primary/10 text-primary'
-                      )}>
-                        {video.isLive ? (
-                          <Radio className="h-6 w-6 animate-pulse" />
-                        ) : (
-                          <Play className="h-6 w-6" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-grow">
-                        <p className="font-semibold">{video.title}</p>
-                        {video.isLive && (
-                          <Badge variant="destructive" className="mt-1 animate-pulse">
-                            AO VIVO
-                          </Badge>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+          <CardContent className="flex-grow flex flex-col min-h-0">
+            <div className="flex-shrink-0 space-y-4 border-b pb-4 mb-4">
+              {specialVideos.map(renderVideoItem)}
+            </div>
+            <ScrollArea className="flex-grow pr-4 -mr-4">
+              <div className="flex flex-col gap-4 pr-4">
+                {scrollableVideos.length > 0 ? scrollableVideos.map(renderVideoItem) : <p className="text-sm text-muted-foreground text-center">Nenhum vídeo nesta lista.</p>}
               </div>
             </ScrollArea>
           </CardContent>
@@ -317,7 +301,7 @@ export function DashboardSkeleton() {
                 </div>
             </div>
             <div className="lg:col-span-1">
-                <Card>
+                <Card className="h-[70vh]">
                     <CardHeader>
                         <Skeleton className="h-7 w-48" />
                         <div className="flex flex-col gap-4 pt-4 sm:flex-row">
@@ -326,7 +310,7 @@ export function DashboardSkeleton() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                       {Array.from({ length: 4 }).map((_, i) => (
+                       {Array.from({ length: 5 }).map((_, i) => (
                          <div key={i} className="flex items-center gap-4 p-3">
                             <Skeleton className="h-12 w-12 rounded-md" />
                             <div className="flex-grow space-y-2">
