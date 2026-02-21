@@ -58,24 +58,36 @@ export default function VideoDashboard() {
   };
   
   const handleSelectVideo = useCallback((video: WithId<Video>) => {
-    if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
-      try {
-        const urlWithAutoplay = new URL(video.youtubeUrl);
-        urlWithAutoplay.searchParams.set('autoplay', '1');
-        setCurrentVideo({ ...video, youtubeUrl: urlWithAutoplay.toString() });
-      } catch (e) {
-        setCurrentVideo(video);
-      }
-    } else {
-      setCurrentVideo(video);
-    }
+    setCurrentVideo(currentVideo => {
+        // Prevent re-rendering if the same video is selected
+        if(currentVideo?.id === video.id) return currentVideo;
+        
+        let videoToPlay = video;
+        if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
+          try {
+            const urlWithAutoplay = new URL(video.youtubeUrl);
+            urlWithAutoplay.searchParams.set('autoplay', '1');
+            videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
+          } catch (e) {
+            // Ignore invalid URL
+          }
+        }
+        return videoToPlay;
+    });
     
-    // When a video is selected, if it was in the "finished countdown" list,
-    // remove it so it moves to the main catalog on the next render.
-    if (finishedCountdownIds.includes(video.id)) {
-      setFinishedCountdownIds(prev => prev.filter(id => id !== video.id));
-    }
-  }, [finishedCountdownIds]);
+    setFinishedCountdownIds(prev => {
+        if (prev.includes(video.id)) {
+            return prev.filter(id => id !== video.id);
+        }
+        return prev;
+    });
+  }, []); // Stable function due to empty dependency array and functional state updates
+
+
+  const handleWatchNow = (video: WithId<Video>) => {
+    handleSelectVideo(video);
+  };
+
 
   const { liveVideo, scheduledVideos, pastVideos, allVisibleVideos } = useMemo(() => {
     if (!allVideos) {
@@ -121,7 +133,7 @@ export default function VideoDashboard() {
     // Shuffle "past" videos only if "Todos" is selected
     const finalPastVideos = selectedCategory === ALL_CATEGORIES
       ? [...filteredPast].sort(() => Math.random() - 0.5)
-      : filteredPast; // Already sorted by Firestore query (createdAt desc)
+      : filteredPast;
 
     const allVisible = [
       ...(live ? [live] : []),
@@ -182,11 +194,6 @@ export default function VideoDashboard() {
     return <DashboardSkeleton />;
   }
 
-  const handleWatchNow = (video: WithId<Video>) => {
-    const videoUrl = new URL(window.location.href);
-    videoUrl.searchParams.set('videoId', video.id);
-    router.push(videoUrl.toString(), { scroll: false });
-  };
 
   const renderVideoItem = (video: WithId<Video>) => {
     const isFinishedCountdown = finishedCountdownIds.includes(video.id);
