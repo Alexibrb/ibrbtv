@@ -31,6 +31,7 @@ export default function VideoDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
+  const [shuffledPastVideos, setShuffledPastVideos] = useState<WithId<Video>[]>([]);
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
 
@@ -62,12 +63,20 @@ export default function VideoDashboard() {
     [allVideos, now]
   );
 
-  const past = useMemo(() =>
+  const pastVideos = useMemo(() =>
     allVideos?.filter(v => !v.isLive && (!v.scheduledAt || new Date(v.scheduledAt) <= now)) || [],
     [allVideos, now]
   );
   
-  const initialList = useMemo(() => [...scheduledVideos, ...past], [scheduledVideos, past]);
+  useEffect(() => {
+    // This effect runs only on the client-side after hydration to prevent
+    // hydration mismatch errors from using Math.random(). It shuffles the
+    // list of past videos to display them in a random order on each page load
+    // or when the list of videos changes.
+    setShuffledPastVideos([...pastVideos].sort(() => Math.random() - 0.5));
+  }, [pastVideos]);
+  
+  const initialList = useMemo(() => [...scheduledVideos, ...shuffledPastVideos], [scheduledVideos, shuffledPastVideos]);
 
   const filteredList = useMemo(() => {
     let list = initialList;
