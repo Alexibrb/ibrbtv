@@ -25,6 +25,10 @@
           "type": "string",
           "description": "The category of the video."
         },
+        "finalCategory": {
+          "type": "string",
+          "description": "The final category for a scheduled video after it becomes available."
+        },
         "scheduledAt": {
           "type": "string",
           "format": "date-time",

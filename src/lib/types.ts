@@ -5,6 +5,7 @@ export type Video = {
   summary: string;
   isLive?: boolean;
   category: string;
+  finalCategory?: string;
   scheduledAt?: string;
   createdAt: string;
 };

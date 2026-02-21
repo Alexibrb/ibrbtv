@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,14 +19,17 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { Button } from '../ui/button';
-import { useCollection, WithId } from '@/firebase';
-import { orderBy } from 'firebase/firestore';
+import { useFirebase, useCollection, WithId } from '@/firebase';
+import { orderBy, doc, setDoc } from 'firebase/firestore';
+import { toast } from '@/hooks/use-toast';
 
 
 const ALL_CATEGORIES = 'Todos';
 type Category = { name: string };
 
 export default function VideoDashboard() {
+  const router = useRouter();
+  const { firestore } = useFirebase();
   const [currentVideo, setCurrentVideo] = useState<WithId<Video> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,7 +39,6 @@ export default function VideoDashboard() {
 
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
-
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 
   const categories = useMemo(() => {
@@ -74,62 +76,61 @@ export default function VideoDashboard() {
     });
   };
 
-  const handleWatchNow = (video: WithId<Video>) => {
-    // 1. Play the video
-    setCurrentVideo(currentVideo => {
-      if (currentVideo?.id === video.id) return currentVideo;
-
-      let videoToPlay = { ...video };
-      if (!videoToPlay.youtubeUrl.includes('autoplay=1')) {
-        try {
-          const urlWithAutoplay = new URL(videoToPlay.youtubeUrl);
-          urlWithAutoplay.searchParams.set('autoplay', '1');
-          videoToPlay.youtubeUrl = urlWithAutoplay.toString();
-        } catch (e) {
-           // Ignore invalid URL
-        }
-      }
-      return videoToPlay;
-    });
-
-    // 2. Set the category so the user sees the video they just clicked.
-    if (video.category) {
-        setSelectedCategory(video.category);
+  const handleWatchNow = async (video: WithId<Video>) => {
+    if (!video.finalCategory) return;
+    
+    try {
+      const videoRef = doc(firestore, 'videos', video.id);
+      await setDoc(videoRef, { category: video.finalCategory }, { merge: true });
+      
+      // After the successful update, the Firestore listener will update the state.
+      // To ensure we select the right video after the re-render, we use a URL parameter.
+      router.push(`/watch?videoId=${video.id}`);
+      
+    } catch (error) {
+      console.error("Failed to update video category:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível iniciar o vídeo. Tente atualizar a página.",
+      });
     }
-    // 3. Move the video from scheduled to past by removing it from the finished countdown list
-    setFinishedCountdownIds(prev => prev.filter(id => id !== video.id));
   };
 
 
-  const { liveVideo, scheduledVideos, pastVideos } = useMemo(() => {
+  const { scheduledVideos, catalogVideos } = useMemo(() => {
     if (!allVideos) {
-      return { liveVideo: null, scheduledVideos: [], pastVideos: [] };
+      return { scheduledVideos: [], catalogVideos: [] };
     }
+
+    const scheduled = allVideos.filter(v => v.category === '_scheduled_');
+    const catalog = allVideos.filter(v => v.category !== '_scheduled_');
 
     const futureScheduled: WithId<Video>[] = [];
     const availableScheduled: WithId<Video>[] = [];
-    const catalog: WithId<Video>[] = [];
 
-    for (const video of allVideos) {
+    for (const video of scheduled) {
       const isFinishedCountdown = finishedCountdownIds.includes(video.id);
       const isScheduledFuture = video.scheduledAt && new Date(video.scheduledAt) > now;
       
-      if (isFinishedCountdown) {
+      if (isFinishedCountdown || !isScheduledFuture) {
         availableScheduled.push(video);
-      } else if (isScheduledFuture) {
-        futureScheduled.push(video);
       } else {
-        catalog.push(video);
+        futureScheduled.push(video);
       }
     }
     
-    // Sort scheduled videos: future ones by date, available ones appear first.
     futureScheduled.sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
-    const allScheduled = [...availableScheduled, ...futureScheduled];
+    
+    return {
+      scheduledVideos: [...availableScheduled, ...futureScheduled],
+      catalogVideos: catalog,
+    };
+  }, [allVideos, now, finishedCountdownIds]);
 
-
+  const { liveVideo, pastVideos } = useMemo(() => {
     // Filter catalog videos based on UI controls
-    const filteredCatalogVideos = catalog
+    const filteredCatalogVideos = catalogVideos
       .filter(v => {
         if (selectedCategory === ALL_CATEGORIES) return true;
         return v.category === selectedCategory;
@@ -148,10 +149,9 @@ export default function VideoDashboard() {
 
     return {
       liveVideo: live,
-      scheduledVideos: allScheduled,
       pastVideos: finalPastVideos,
     };
-  }, [allVideos, now, finishedCountdownIds, selectedCategory, searchTerm]);
+  }, [catalogVideos, selectedCategory, searchTerm]);
   
   
   const allVisibleCatalogVideos = useMemo(() => {
@@ -167,7 +167,7 @@ export default function VideoDashboard() {
     const videoIdFromUrl = searchParams.get('videoId');
     if (videoIdFromUrl) {
         const videoFromUrl = allVideos.find(v => v.id === videoIdFromUrl);
-        if (videoFromUrl && currentVideo?.id !== videoFromUrl.id) {
+        if (videoFromUrl && videoFromUrl.category !== '_scheduled_' && currentVideo?.id !== videoFromUrl.id) {
             handleSelectVideo(videoFromUrl);
             if (videoFromUrl.category && categories.includes(videoFromUrl.category)) {
               setSelectedCategory(videoFromUrl.category);
@@ -194,7 +194,7 @@ export default function VideoDashboard() {
     } else {
         setCurrentVideo(null);
     }
-  }, [allVisibleCatalogVideos, scheduledVideos, currentVideo, videosLoading, allVideos, searchParams, handleSelectVideo, categories]);
+  }, [allVisibleCatalogVideos, scheduledVideos, currentVideo, videosLoading, allVideos, searchParams, categories]);
 
 
   if (videosLoading || categoriesLoading) {
@@ -205,8 +205,11 @@ export default function VideoDashboard() {
   const renderVideoItem = (video: WithId<Video>, isFromScheduledList: boolean) => {
     if (isFromScheduledList) {
       const isFinishedCountdown = finishedCountdownIds.includes(video.id);
+      const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
+      
+      const isAvailable = isFinishedCountdown || !isScheduledFuture;
 
-      if (isFinishedCountdown) {
+      if (isAvailable) {
         return (
           <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
             <p className="font-semibold text-card-foreground">{video.title}</p>
@@ -219,7 +222,6 @@ export default function VideoDashboard() {
         );
       }
       
-      const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
       if (isScheduledFuture) {
         return (
           <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">

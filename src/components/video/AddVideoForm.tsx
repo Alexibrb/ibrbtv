@@ -85,12 +85,15 @@ export default function AddVideoForm() {
 
     if (state.title && state.youtubeUrl && state.category && state.youtubeUrl !== processedUrl.current) {
       processedUrl.current = state.youtubeUrl;
+      const isScheduled = !!state.scheduledAt;
+
       const newVideo: Omit<Video, 'id' | 'createdAt'> = {
         youtubeUrl: state.youtubeUrl,
         title: state.title,
         summary: settings?.defaultSummary || '',
         isLive: false,
-        category: state.category,
+        category: isScheduled ? '_scheduled_' : state.category,
+        finalCategory: isScheduled ? state.category : undefined,
         scheduledAt: state.scheduledAt || '',
       };
 
