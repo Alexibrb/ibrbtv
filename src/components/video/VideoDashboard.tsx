@@ -235,10 +235,10 @@ export default function VideoDashboard() {
 
                   if (isFinishedCountdown) {
                     return (
-                        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-primary/50 bg-primary/5 p-3 text-left">
+                        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-left">
                             <p className="font-semibold text-card-foreground">{video.title}</p>
-                            <Badge variant="default" className="mt-1">DISPONÍVEL AGORA</Badge>
-                            <Button onClick={() => { window.location.href = `/watch?videoId=${video.id}`; }} size="sm" className="mt-2">
+                            <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
+                            <Button variant="destructive" onClick={() => { window.location.href = `/watch?videoId=${video.id}`; }} size="sm" className="mt-2">
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Atualizar para assistir
                             </Button>
@@ -258,7 +258,7 @@ export default function VideoDashboard() {
                               <CountdownTimer
                                   targetDate={video.scheduledAt!}
                                   onComplete={() => handleCountdownComplete(video.id)}
-                                  className="w-full text-lg font-mono text-destructive"
+                                  className="w-full text-lg font-mono"
                               />
                           </div>
                       );
