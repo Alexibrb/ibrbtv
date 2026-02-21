@@ -75,14 +75,30 @@ export default function VideoDashboard() {
   }, []);
 
   const handleWatchNow = useCallback((video: WithId<Video>) => {
-    handleSelectVideo(video);
-    // Set the category so the user sees the video they just clicked.
+    // 1. Play the video
+    setCurrentVideo(currentVideo => {
+      if (currentVideo?.id === video.id) return currentVideo;
+
+      let videoToPlay = { ...video };
+      if (!videoToPlay.youtubeUrl.includes('autoplay=1')) {
+        try {
+          const urlWithAutoplay = new URL(videoToPlay.youtubeUrl);
+          urlWithAutoplay.searchParams.set('autoplay', '1');
+          videoToPlay.youtubeUrl = urlWithAutoplay.toString();
+        } catch (e) {
+           // Ignore invalid URL
+        }
+      }
+      return videoToPlay;
+    });
+
+    // 2. Set the category so the user sees the video they just clicked.
     if (video.category) {
         setSelectedCategory(video.category);
     }
-    // Move the video from scheduled to past by removing it from the finished countdown list
+    // 3. Move the video from scheduled to past by removing it from the finished countdown list
     setFinishedCountdownIds(prev => prev.filter(id => id !== video.id));
-  }, [handleSelectVideo]);
+  }, []);
 
 
   const { liveVideo, scheduledVideos, pastVideos } = useMemo(() => {
@@ -90,30 +106,33 @@ export default function VideoDashboard() {
       return { liveVideo: null, scheduledVideos: [], pastVideos: [] };
     }
 
-    // This list is for the "Próximas Transmissões" card and should NOT be filtered by category.
-    const allUpcoming = allVideos.filter(v => {
-      if (v.isLive) return false;
-      const isFuture = v.scheduledAt && new Date(v.scheduledAt) > now;
-      const isAvailable = finishedCountdownIds.includes(v.id);
-      return isFuture || isAvailable;
-    });
-
-    // Sort all upcoming videos.
-    allUpcoming.sort((a, b) => {
-      const aIsAvailable = finishedCountdownIds.includes(a.id);
-      const bIsAvailable = finishedCountdownIds.includes(b.id);
-      if (aIsAvailable && !bIsAvailable) return -1;
-      if (!aIsAvailable && bIsAvailable) return 1;
-      if (a.scheduledAt && b.scheduledAt) {
-        return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    const { scheduled, notScheduled } = allVideos.reduce((acc, video) => {
+      if(video.isLive) {
+        acc.notScheduled.push(video);
+        return acc;
       }
-      return 0;
-    });
+      const isFuture = video.scheduledAt && new Date(video.scheduledAt) > now;
+      const isAvailable = finishedCountdownIds.includes(video.id);
+      if (isFuture || isAvailable) {
+        acc.scheduled.push(video);
+      } else {
+        acc.notScheduled.push(video);
+      }
+      return acc;
+    }, { scheduled: [] as WithId<Video>[], notScheduled: [] as WithId<Video>[] });
 
-    const upcomingIds = new Set(allUpcoming.map(v => v.id));
+    scheduled.sort((a, b) => {
+        const aIsAvailable = finishedCountdownIds.includes(a.id);
+        const bIsAvailable = finishedCountdownIds.includes(b.id);
+        if (aIsAvailable && !bIsAvailable) return -1;
+        if (!aIsAvailable && bIsAvailable) return 1;
+        if (a.scheduledAt && b.scheduledAt) {
+            return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+        }
+        return 0;
+    });
     
-    // All videos for the main catalog (live or past)
-    const catalogVideos = allVideos.filter(v => !upcomingIds.has(v.id));
+    const catalogVideos = notScheduled;
 
     // Filter them all based on UI controls
     const filteredCatalogVideos = catalogVideos
@@ -137,7 +156,7 @@ export default function VideoDashboard() {
 
     return {
       liveVideo: live,
-      scheduledVideos: allUpcoming,
+      scheduledVideos: scheduled,
       pastVideos: finalPastVideos,
     };
   }, [allVideos, now, finishedCountdownIds, selectedCategory, searchTerm]);
@@ -194,41 +213,44 @@ export default function VideoDashboard() {
   }
 
 
-  const renderVideoItem = (video: WithId<Video>) => {
-    const isFinishedCountdown = finishedCountdownIds.includes(video.id);
-    
+  const renderVideoItem = (video: WithId<Video>, isFromScheduledList: boolean) => {
     // This is a video that has finished its countdown but hasn't been watched yet.
-    if (isFinishedCountdown) {
-      return (
-        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
-          <p className="font-semibold text-card-foreground">{video.title}</p>
-          <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
-          <Button variant="destructive" onClick={() => handleWatchNow(video)} size="sm" className="mt-2">
-            <Play className="mr-2 h-4 w-4" />
-            Assistir agora
-          </Button>
-        </div>
-      );
-    }
-    
-    // This is a video scheduled for the future.
-    const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
-    if (isScheduledFuture) {
-      return (
-        <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
-          <p className="font-semibold text-card-foreground">{video.title}</p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>Começa em:</span>
+    if (isFromScheduledList) {
+      const isFinishedCountdown = finishedCountdownIds.includes(video.id);
+
+      if (isFinishedCountdown) {
+        return (
+          <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
+            <p className="font-semibold text-card-foreground">{video.title}</p>
+            <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
+            <Button variant="destructive" onClick={() => handleWatchNow(video)} size="sm" className="mt-2">
+              <Play className="mr-2 h-4 w-4" />
+              Assistir agora
+            </Button>
           </div>
-          <CountdownTimer
-            targetDate={video.scheduledAt!}
-            onComplete={() => handleCountdownComplete(video.id)}
-            className="w-full text-lg font-mono text-foreground"
-          />
-        </div>
-      );
+        );
+      }
+      
+      // This is a video scheduled for the future.
+      const isScheduledFuture = !video.isLive && video.scheduledAt && new Date(video.scheduledAt) > now;
+      if (isScheduledFuture) {
+        return (
+          <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
+            <p className="font-semibold text-card-foreground">{video.title}</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>Começa em:</span>
+            </div>
+            <CountdownTimer
+              targetDate={video.scheduledAt!}
+              onComplete={() => handleCountdownComplete(video.id)}
+              className="w-full text-lg font-mono text-foreground"
+            />
+          </div>
+        );
+      }
     }
+
 
     // This is a regular catalog video (live or past).
     return (
@@ -312,7 +334,7 @@ export default function VideoDashboard() {
                 <CardContent>
                     <ScrollArea className="max-h-64">
                         <div className="flex flex-col gap-4 pr-4">
-                            {scheduledVideos.map(renderVideoItem)}
+                            {scheduledVideos.map(video => renderVideoItem(video, true))}
                         </div>
                     </ScrollArea>
                 </CardContent>
@@ -343,9 +365,9 @@ export default function VideoDashboard() {
           <CardContent className="h-full flex flex-col">
             <ScrollArea className="flex-1 h-[40vh] -mx-6 px-6">
               <div className="flex flex-col gap-4 pr-4">
-                {liveVideo && renderVideoItem(liveVideo)}
+                {liveVideo && renderVideoItem(liveVideo, false)}
                 {pastVideos.length > 0 
-                  ? pastVideos.map(renderVideoItem) 
+                  ? pastVideos.map(video => renderVideoItem(video, false)) 
                   : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-4">Nenhum vídeo nesta categoria.</p>)
                 }
               </div>
