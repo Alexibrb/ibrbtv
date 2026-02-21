@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,10 +18,8 @@ import {
 } from "@/components/ui/select"
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
-import { Button } from '../ui/button';
 import { useFirebase, useCollection, WithId } from '@/firebase';
 import { orderBy, doc, setDoc } from 'firebase/firestore';
-import { toast } from '@/hooks/use-toast';
 
 
 const ALL_CATEGORIES = 'Todos';
@@ -33,9 +31,7 @@ export default function VideoDashboard() {
   const [currentVideo, setCurrentVideo] = useState<WithId<Video> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
-  const [finishedCountdownIds, setFinishedCountdownIds] = useState<string[]>([]);
   const [now, setNow] = useState(new Date());
-  const searchParams = useSearchParams();
 
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
@@ -54,10 +50,6 @@ export default function VideoDashboard() {
     return () => clearInterval(timer);
   }, []);
   
-  const handleCountdownComplete = useCallback((videoId: string) => {
-    setFinishedCountdownIds(prev => [...new Set([...prev, videoId])]);
-  }, []);
-
   const handleSelectVideo = (video: WithId<Video>) => {
     setCurrentVideo(currentVideo => {
         if(currentVideo?.id === video.id) return currentVideo;
@@ -76,57 +68,21 @@ export default function VideoDashboard() {
     });
   };
 
-  const handleWatchNow = async (video: WithId<Video>) => {
-    if (!video.finalCategory) return;
-    
-    try {
-      const videoRef = doc(firestore, 'videos', video.id);
-      await setDoc(videoRef, { category: video.finalCategory, finalCategory: '', scheduledAt: '' }, { merge: true });
-      
-      // After the successful update, the Firestore listener will update the state.
-      // To ensure we select the right video after the re-render, we use a URL parameter.
-      router.push(`/watch?videoId=${video.id}`);
-      
-    } catch (error) {
-      console.error("Failed to update video category:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível iniciar o vídeo. Tente atualizar a página.",
-      });
-    }
-  };
-
-
   const { scheduledVideos, catalogVideos } = useMemo(() => {
     if (!allVideos) {
       return { scheduledVideos: [], catalogVideos: [] };
     }
 
-    const scheduled = allVideos.filter(v => v.category === '_scheduled_');
-    const catalog = allVideos.filter(v => v.category !== '_scheduled_');
-
-    const futureScheduled: WithId<Video>[] = [];
-    const availableScheduled: WithId<Video>[] = [];
-
-    for (const video of scheduled) {
-      const isFinishedCountdown = finishedCountdownIds.includes(video.id);
-      const isScheduledFuture = video.scheduledAt && new Date(video.scheduledAt) > now;
+    const scheduled = allVideos.filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
+      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
       
-      if (isFinishedCountdown || !isScheduledFuture) {
-        availableScheduled.push(video);
-      } else {
-        futureScheduled.push(video);
-      }
-    }
-    
-    futureScheduled.sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+    const catalog = allVideos.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
     
     return {
-      scheduledVideos: [...availableScheduled, ...futureScheduled],
+      scheduledVideos: scheduled,
       catalogVideos: catalog,
     };
-  }, [allVideos, now, finishedCountdownIds]);
+  }, [allVideos, now]);
 
   const { liveVideo, pastVideos } = useMemo(() => {
     // Filter catalog videos based on UI controls
@@ -162,28 +118,19 @@ export default function VideoDashboard() {
  }, [liveVideo, pastVideos]);
 
   useEffect(() => {
-    if (videosLoading || !allVideos) return;
+    if (videosLoading) return;
 
-    const videoIdFromUrl = searchParams.get('videoId');
-    if (videoIdFromUrl) {
-        const videoFromUrl = allVideos.find(v => v.id === videoIdFromUrl);
-        if (videoFromUrl && videoFromUrl.category !== '_scheduled_' && currentVideo?.id !== videoFromUrl.id) {
-            handleSelectVideo(videoFromUrl);
-            if (videoFromUrl.category && categories.includes(videoFromUrl.category)) {
-              setSelectedCategory(videoFromUrl.category);
-            }
-            return;
-        }
-    }
-    
+    // Don't change video if the current one is still visible
     if (currentVideo && allVisibleCatalogVideos.some(v => v.id === currentVideo.id)) {
         return;
     }
     
+    // Don't select a video from the catalog if there are none and there are scheduled videos
     if(allVisibleCatalogVideos.length === 0 && scheduledVideos.length > 0) {
         return;
     }
 
+    // Select a video if one isn't selected or the current one disappeared
     if (allVisibleCatalogVideos.length > 0) {
         const live = allVisibleCatalogVideos.find(v => v.isLive);
         if (live) {
@@ -192,9 +139,11 @@ export default function VideoDashboard() {
             handleSelectVideo(allVisibleCatalogVideos[0]);
         }
     } else {
+        // Clear video if no videos are visible
         setCurrentVideo(null);
     }
-  }, [allVisibleCatalogVideos, scheduledVideos, currentVideo, videosLoading, allVideos, searchParams, categories, handleSelectVideo]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allVisibleCatalogVideos, scheduledVideos, videosLoading]);
 
 
   if (videosLoading || categoriesLoading) {
@@ -202,46 +151,7 @@ export default function VideoDashboard() {
   }
 
 
-  const renderVideoItem = (video: WithId<Video>, isFromScheduledList: boolean) => {
-    if (isFromScheduledList) {
-      const isFinishedCountdown = finishedCountdownIds.includes(video.id);
-      const isScheduledFuture = video.scheduledAt && new Date(video.scheduledAt) > now;
-      
-      const isAvailable = isFinishedCountdown || !isScheduledFuture;
-
-      if (isAvailable) {
-        return (
-          <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border-2 border-destructive bg-destructive/5 p-3 text-left">
-            <p className="font-semibold text-card-foreground">{video.title}</p>
-            <Badge variant="destructive" className="mt-1">DISPONÍVEL AGORA</Badge>
-            <Button variant="destructive" onClick={() => handleWatchNow(video)} size="sm" className="mt-2">
-              <Play className="mr-2 h-4 w-4" />
-              Assistir agora
-            </Button>
-          </div>
-        );
-      }
-      
-      if (isScheduledFuture) {
-        return (
-          <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
-            <p className="font-semibold text-card-foreground">{video.title}</p>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Começa em:</span>
-            </div>
-            <CountdownTimer
-              targetDate={video.scheduledAt!}
-              onComplete={() => handleCountdownComplete(video.id)}
-              className="w-full text-lg font-mono text-foreground"
-            />
-          </div>
-        );
-      }
-    }
-
-
-    // This is a regular catalog video (live or past).
+  const renderVideoItem = (video: WithId<Video>) => {
     return (
       <button
         key={video.id}
@@ -317,13 +227,28 @@ export default function VideoDashboard() {
                         Próximas Transmissões
                     </CardTitle>
                     <CardDescription>
-                        Vídeos agendados que começarão em breve ou que acabaram de ficar disponíveis.
+                        Vídeos que começarão em breve. Fique de olho na contagem regressiva!
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <ScrollArea className="max-h-64">
                         <div className="flex flex-col gap-4 pr-4">
-                            {scheduledVideos.map(video => renderVideoItem(video, true))}
+                            {scheduledVideos.map(video => (
+                                <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
+                                    <p className="font-semibold text-card-foreground">{video.title}</p>
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Clock className="h-4 w-4" />
+                                    <span>Começa em:</span>
+                                    </div>
+                                    <CountdownTimer
+                                        targetDate={video.scheduledAt!}
+                                        onComplete={() => {
+                                            router.refresh();
+                                        }}
+                                        className="w-full text-lg font-mono text-foreground"
+                                    />
+                                </div>
+                            ))}
                         </div>
                     </ScrollArea>
                 </CardContent>
@@ -354,9 +279,9 @@ export default function VideoDashboard() {
           <CardContent className="h-full flex flex-col">
             <ScrollArea className="flex-1 h-[40vh] -mx-6 px-6">
               <div className="flex flex-col gap-4 pr-4">
-                {liveVideo && renderVideoItem(liveVideo, false)}
+                {liveVideo && renderVideoItem(liveVideo)}
                 {pastVideos.length > 0 
-                  ? pastVideos.map(video => renderVideoItem(video, false)) 
+                  ? pastVideos.map(video => renderVideoItem(video)) 
                   : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-4">Nenhum vídeo nesta categoria.</p>)
                 }
               </div>

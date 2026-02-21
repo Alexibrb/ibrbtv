@@ -71,11 +71,10 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
   useEffect(() => {
     if (video) {
       const scheduledValue = video.scheduledAt ? video.scheduledAt.substring(0, 16) : '';
-      const categoryForForm = video.category === '_scheduled_' ? (video.finalCategory || '') : (video.category || '');
       form.reset({
         title: video.title,
         summary: video.summary,
-        category: categoryForForm,
+        category: video.category,
         scheduledAt: scheduledValue,
       });
     }
@@ -83,14 +82,11 @@ export default function EditVideoDialog({ video, isOpen, onOpenChange, onSave }:
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     if (video) {
-      const isScheduled = !!data.scheduledAt;
-      
       const payload: Partial<Video> = {
         title: data.title,
         summary: data.summary || '',
+        category: data.category,
         scheduledAt: data.scheduledAt || '',
-        category: isScheduled ? '_scheduled_' : data.category,
-        finalCategory: isScheduled ? data.category : undefined,
       };
       
       const updatedVideo: WithId<Video> = {
