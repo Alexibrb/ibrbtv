@@ -51,6 +51,8 @@ export default function VideoDashboard() {
   }, []);
   
   const handleClickVideo = (video: WithId<Video>) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     if (currentVideoId === video.id) return;
 
     // Increment view count in Firestore, non-blocking
@@ -380,6 +382,8 @@ export function DashboardSkeleton() {
         </div>
     );
 }
+
+    
 
     
 
