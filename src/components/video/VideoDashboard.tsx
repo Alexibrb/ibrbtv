@@ -63,7 +63,10 @@ export default function VideoDashboard() {
   }, [currentVideoId]);
   
   const handleClickVideo = (video: WithId<Video>) => {
-    if (currentVideoId === video.id) return;
+    if (currentVideoId === video.id) {
+        playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
 
     // Increment view count in Firestore, non-blocking
     const videoRef = doc(firestore, 'videos', video.id);
@@ -127,39 +130,33 @@ export default function VideoDashboard() {
       });
 
     const live = filteredCatalogVideos.find(v => v.isLive) || null;
-    const past = filteredCatalogVideos.filter(v => !v.isLive);
+    let past = filteredCatalogVideos.filter(v => !v.isLive);
     const newlyAvailableIds = new Set<string>();
-    
-    const finalPastVideos = (() => {
-      if (selectedCategory !== ALL_CATEGORIES || searchTerm) {
-        return past;
+
+    // Move selected video to the top of the 'past' list
+    if (currentVideoId) {
+      const selectedVideoIndex = past.findIndex(v => v.id === currentVideoId);
+      if (selectedVideoIndex > 0) { // if found and not already at the top
+        const [selectedVideo] = past.splice(selectedVideoIndex, 1);
+        past.unshift(selectedVideo);
       }
-      
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+    }
+    
+    // This logic just identifies "new" videos for the sparkle icon, which is fine to keep.
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-      const newlyAvailable = past.filter(v =>
-        v.scheduledAt && new Date(v.scheduledAt).getTime() >= todayStart.getTime()
-      );
-      newlyAvailable.forEach(v => newlyAvailableIds.add(v.id));
-
-      const olderVideos = past.filter(v =>
-        !v.scheduledAt || new Date(v.scheduledAt).getTime() < todayStart.getTime()
-      );
-      
-      newlyAvailable.sort((a, b) => new Date(b.scheduledAt!).getTime() - new Date(a.scheduledAt!).getTime());
-      
-      const shuffledOlderVideos = [...olderVideos].sort(() => Math.random() - 0.5);
-
-      return [...newlyAvailable, ...shuffledOlderVideos];
-    })();
+    const newlyAvailable = past.filter(v =>
+      v.scheduledAt && new Date(v.scheduledAt).getTime() >= todayStart.getTime()
+    );
+    newlyAvailable.forEach(v => newlyAvailableIds.add(v.id));
 
     return {
       liveVideo: live,
-      pastVideos: finalPastVideos,
+      pastVideos: past,
       newlyAvailableVideoIds: newlyAvailableIds,
     };
-  }, [catalogVideos, selectedCategory, searchTerm]);
+  }, [catalogVideos, selectedCategory, searchTerm, currentVideoId]);
   
   
   const allVisibleCatalogVideos = useMemo(() => {
