@@ -22,6 +22,7 @@ import { orderBy, doc, updateDoc, increment } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import GoToPlayerButton from './GoToPlayerButton';
 
 
 const ALL_CATEGORIES = 'Todos';
@@ -240,124 +241,127 @@ export default function VideoDashboard() {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-2" ref={playerRef}>
-        <Card className="overflow-hidden shadow-lg">
-          {currentVideo ? (
-            <>
-              <div className="aspect-video w-full bg-card">
-                <iframe
-                  key={currentVideo.id}
-                  width="100%"
-                  height="100%"
-                  src={currentVideo.youtubeUrl}
-                  title={currentVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="border-0"
-                ></iframe>
-              </div>
-              <CardHeader>
-                <CardTitle className="font-headline text-3xl">{currentVideo.title}</CardTitle>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground pt-2">
-                    <Eye className="h-4 w-4" />
-                    <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+    <>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2" ref={playerRef}>
+          <Card className="overflow-hidden shadow-lg">
+            {currentVideo ? (
+              <>
+                <div className="aspect-video w-full bg-card">
+                  <iframe
+                    key={currentVideo.id}
+                    width="100%"
+                    height="100%"
+                    src={currentVideo.youtubeUrl}
+                    title={currentVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="border-0"
+                  ></iframe>
                 </div>
-                <CardDescription className="pt-2">{currentVideo.summary}</CardDescription>
-              </CardHeader>
-            </>
-          ) : (
-             <CardContent className="flex h-[60vh] items-center justify-center">
-                <div className="text-center">
-                    <h2 className="font-headline text-2xl">Nenhum vídeo encontrado</h2>
-                    <p className="text-muted-foreground mt-2">Tente selecionar outra categoria ou adicione um vídeo na área de administração.</p>
-                </div>
-             </CardContent>
-          )}
-        </Card>
-      </div>
-
-      <div className="lg:col-span-1 flex flex-col gap-8">
-        {scheduledVideos.length > 0 && (
-            <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="font-headline flex items-center gap-2">
-                        <Clock className="h-6 w-6 text-primary" />
-                        Próximas Transmissões
-                    </CardTitle>
-                    <CardDescription>
-                        Vídeos que começarão em breve. Fique de olho na contagem regressiva!
-                    </CardDescription>
+                  <CardTitle className="font-headline text-3xl">{currentVideo.title}</CardTitle>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground pt-2">
+                      <Eye className="h-4 w-4" />
+                      <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+                  </div>
+                  <CardDescription className="pt-2">{currentVideo.summary}</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <ScrollArea className="max-h-64">
-                        <div className="flex flex-col gap-4 pr-4">
-                            {scheduledVideos.map(video => (
-                                <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
-                                    <p className="font-semibold text-card-foreground">{video.title}</p>
-                                    
-                                    {completedTimers.includes(video.id) ? (
-                                        <Button onClick={() => window.location.reload()} className="w-full mt-2" variant="destructive">
-                                            Atualizar para assistir
-                                        </Button>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <Clock className="h-4 w-4" />
-                                                <span>Começa em:</span>
-                                            </div>
-                                            <CountdownTimer
-                                                targetDate={video.scheduledAt!}
-                                                onComplete={() => {
-                                                    setCompletedTimers(prev => [...prev, video.id]);
-                                                }}
-                                                className="w-full text-lg font-mono text-foreground"
-                                            />
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </ScrollArea>
-                </CardContent>
-            </Card>
-        )}
-        <Card className="shadow-lg flex-1">
-          <CardHeader>
-             <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
-             <div className="flex flex-col gap-4 pt-4 sm:flex-row">
-                <Input
-                  placeholder="Filtrar por título..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-1/2"
-                />
-                <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
-                    <SelectTrigger className="w-full sm:w-1/2">
-                        <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Filtrar por categoria"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {categories.map(category => (
-                            <SelectItem key={category} value={category}>{category}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-             </div>
-          </CardHeader>
-          <CardContent className="h-full flex flex-col">
-            <ScrollArea className="flex-1 h-[40vh] -mx-6 px-6">
-              <div className="flex flex-col gap-4 pr-4">
-                {liveVideo && renderVideoItem(liveVideo)}
-                {pastVideos.length > 0 
-                  ? pastVideos.map(video => renderVideoItem(video)) 
-                  : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-4">Nenhum vídeo nesta categoria.</p>)
-                }
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+              </>
+            ) : (
+               <CardContent className="flex h-[60vh] items-center justify-center">
+                  <div className="text-center">
+                      <h2 className="font-headline text-2xl">Nenhum vídeo encontrado</h2>
+                      <p className="text-muted-foreground mt-2">Tente selecionar outra categoria ou adicione um vídeo na área de administração.</p>
+                  </div>
+               </CardContent>
+            )}
+          </Card>
+        </div>
+
+        <div className="lg:col-span-1 flex flex-col gap-8">
+          {scheduledVideos.length > 0 && (
+              <Card className="shadow-lg">
+                  <CardHeader>
+                      <CardTitle className="font-headline flex items-center gap-2">
+                          <Clock className="h-6 w-6 text-primary" />
+                          Próximas Transmissões
+                      </CardTitle>
+                      <CardDescription>
+                          Vídeos que começarão em breve. Fique de olho na contagem regressiva!
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <ScrollArea className="max-h-64">
+                          <div className="flex flex-col gap-4 pr-4">
+                              {scheduledVideos.map(video => (
+                                  <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
+                                      <p className="font-semibold text-card-foreground">{video.title}</p>
+                                      
+                                      {completedTimers.includes(video.id) ? (
+                                          <Button onClick={() => window.location.reload()} className="w-full mt-2" variant="destructive">
+                                              Atualizar para assistir
+                                          </Button>
+                                      ) : (
+                                          <>
+                                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                  <Clock className="h-4 w-4" />
+                                                  <span>Começa em:</span>
+                                              </div>
+                                              <CountdownTimer
+                                                  targetDate={video.scheduledAt!}
+                                                  onComplete={() => {
+                                                      setCompletedTimers(prev => [...prev, video.id]);
+                                                  }}
+                                                  className="w-full text-lg font-mono text-foreground"
+                                              />
+                                          </>
+                                      )}
+                                  </div>
+                              ))}
+                          </div>
+                      </ScrollArea>
+                  </CardContent>
+              </Card>
+          )}
+          <Card className="shadow-lg flex-1">
+            <CardHeader>
+               <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
+               <div className="flex flex-col gap-4 pt-4 sm:flex-row">
+                  <Input
+                    placeholder="Filtrar por título..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full sm:w-1/2"
+                  />
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
+                      <SelectTrigger className="w-full sm:w-1/2">
+                          <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Filtrar por categoria"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {categories.map(category => (
+                              <SelectItem key={category} value={category}>{category}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+               </div>
+            </CardHeader>
+            <CardContent className="h-full flex flex-col">
+              <ScrollArea className="flex-1 h-[40vh] -mx-6 px-6">
+                <div className="flex flex-col gap-4 pr-4">
+                  {liveVideo && renderVideoItem(liveVideo)}
+                  {pastVideos.length > 0 
+                    ? pastVideos.map(video => renderVideoItem(video)) 
+                    : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-4">Nenhum vídeo nesta categoria.</p>)
+                  }
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+      <GoToPlayerButton playerRef={playerRef} />
+    </>
   );
 }
 
@@ -402,4 +406,3 @@ export function DashboardSkeleton() {
     
 
     
-
