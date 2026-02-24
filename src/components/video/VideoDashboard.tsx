@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +32,7 @@ export default function VideoDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [now, setNow] = useState(new Date());
   const [completedTimers, setCompletedTimers] = useState<string[]>([]);
+  const playerRef = useRef<HTMLDivElement>(null);
 
 
   const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
@@ -51,7 +52,7 @@ export default function VideoDashboard() {
   }, []);
   
   const handleClickVideo = (video: WithId<Video>) => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     if (currentVideoId === video.id) return;
 
@@ -227,7 +228,7 @@ export default function VideoDashboard() {
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-2" ref={playerRef}>
         <Card className="overflow-hidden shadow-lg">
           {currentVideo ? (
             <>
