@@ -13,31 +13,22 @@ export default function GoToPlayerButton({ playerRef }: GoToPlayerButtonProps) {
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
-    const element = playerRef.current;
-    if (!element) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const isAboveScreen = entry.boundingClientRect.top < 0;
-        const isOutOfView = !entry.isIntersecting;
-
-        if (isOutOfView && isAboveScreen) {
-          setShowButton(true);
-        } else {
-          setShowButton(false);
-        }
-      },
-      {
-        threshold: 0,
+    const handleScroll = () => {
+      if (playerRef.current) {
+        // getBoundingClientRect().bottom will be negative when the entire element
+        // is above the viewport.
+        const isScrolledPast = playerRef.current.getBoundingClientRect().bottom < 0;
+        setShowButton(isScrolledPast);
       }
-    );
+    };
 
-    observer.observe(element);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Initial check in case the page loads already scrolled down
+    handleScroll();
 
     return () => {
-      observer.unobserve(element);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, [playerRef]);
 
