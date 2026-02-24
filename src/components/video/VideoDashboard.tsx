@@ -324,7 +324,7 @@ export default function VideoDashboard() {
                   </CardContent>
               </Card>
           )}
-          <Card className="shadow-lg flex-1">
+          <Card className="shadow-lg">
             <CardHeader>
                <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
                <div className="flex flex-col gap-4 pt-4 sm:flex-row">
@@ -346,8 +346,8 @@ export default function VideoDashboard() {
                   </Select>
                </div>
             </CardHeader>
-            <CardContent className="h-full flex flex-col">
-              <ScrollArea className="flex-1 h-[40vh] -mx-6 px-6">
+            <CardContent>
+              <ScrollArea className="h-[28rem] -mx-6 px-6">
                 <div className="flex flex-col gap-4 pr-4">
                   {liveVideo && renderVideoItem(liveVideo)}
                   {pastVideos.length > 0 
@@ -400,6 +400,8 @@ export function DashboardSkeleton() {
         </div>
     );
 }
+
+    
 
     
 
