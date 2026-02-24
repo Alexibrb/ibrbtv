@@ -16,7 +16,7 @@ export default function LandingPage() {
         </p>
       </div>
       <div className="flex flex-col items-center gap-4 sm:flex-row">
-        <Button asChild size="lg">
+        <Button asChild size="lg" variant="destructive">
           <Link href="/watch">
             Assistir Agora
             <ArrowRight className="ml-2 h-5 w-5" />
