@@ -47,6 +47,9 @@ export default function RootLayout({
             <div className="relative flex min-h-screen w-full flex-col">
               <Header />
               <main className="flex-1">{children}</main>
+              <footer className="py-4 text-center text-sm text-muted-foreground">
+                Desenvolvido por: Alex Alves - 2026
+              </footer>
             </div>
             <Toaster />
           </FirebaseClientProvider>
