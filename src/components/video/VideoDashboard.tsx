@@ -52,10 +52,16 @@ export default function VideoDashboard() {
     }, 60 * 1000); // every minute
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    // When a new video is selected, scroll the player into view.
+    // This is more reliable than calling it directly in the click handler.
+    if (currentVideoId && playerRef.current) {
+      playerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentVideoId]);
   
   const handleClickVideo = (video: WithId<Video>) => {
-    playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
     if (currentVideoId === video.id) return;
 
     // Increment view count in Firestore, non-blocking
@@ -396,3 +402,4 @@ export function DashboardSkeleton() {
     
 
     
+
