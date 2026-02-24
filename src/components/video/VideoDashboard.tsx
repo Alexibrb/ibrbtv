@@ -207,7 +207,11 @@ export default function VideoDashboard() {
       >
         <div className={cn(
           'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
-          currentVideoId === video.id ? 'bg-white/20' : 'bg-primary/10 text-primary'
+          currentVideoId === video.id
+            ? 'bg-white/20'
+            : video.isLive
+            ? 'bg-primary/10 text-primary'
+            : 'bg-destructive text-destructive-foreground'
         )}>
           {video.isLive ? (
             <Radio className="h-6 w-6 animate-pulse" />
