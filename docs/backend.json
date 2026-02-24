@@ -34,6 +34,10 @@
           "type": "string",
           "format": "date-time",
           "description": "The timestamp when the video was created."
+        },
+        "viewCount": {
+          "type": "number",
+          "description": "The number of times the video has been viewed."
         }
       },
       "required": ["youtubeUrl", "title", "category", "createdAt"]

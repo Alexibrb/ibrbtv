@@ -5,7 +5,7 @@ import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Play, Radio, Clock } from 'lucide-react';
+import { Play, Radio, Clock, Eye } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import {
@@ -18,7 +18,7 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
-import { orderBy, doc, setDoc } from 'firebase/firestore';
+import { orderBy, doc, updateDoc, increment } from 'firebase/firestore';
 import { Button } from '../ui/button';
 
 
@@ -53,6 +53,12 @@ export default function VideoDashboard() {
   const handleSelectVideo = (video: WithId<Video>) => {
     setCurrentVideo(currentVideo => {
         if(currentVideo?.id === video.id) return currentVideo;
+
+        // Increment view count in Firestore, non-blocking
+        const videoRef = doc(firestore, 'videos', video.id);
+        updateDoc(videoRef, { viewCount: increment(1) }).catch(err => {
+            console.error("Failed to increment view count", err);
+        });
         
         let videoToPlay = video;
         if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
@@ -200,11 +206,18 @@ export default function VideoDashboard() {
             {isNew && !video.isLive && '✨ '}
             {video.title}
           </p>
-          {video.isLive && (
-            <Badge variant="destructive" className="mt-1 animate-pulse">
-              AO VIVO
-            </Badge>
-          )}
+           <div className="flex items-center text-xs text-muted-foreground mt-1">
+            {video.isLive ? (
+              <Badge variant="destructive" className="animate-pulse">
+                AO VIVO
+              </Badge>
+            ) : (
+                <div className="flex items-center gap-1.5">
+                    <Eye className="h-4 w-4" />
+                    <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                </div>
+            )}
+          </div>
         </div>
       </button>
     );
@@ -230,6 +243,10 @@ export default function VideoDashboard() {
               </div>
               <CardHeader>
                 <CardTitle className="font-headline text-3xl">{currentVideo.title}</CardTitle>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground pt-2">
+                    <Eye className="h-4 w-4" />
+                    <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+                </div>
                 <CardDescription className="pt-2">{currentVideo.summary}</CardDescription>
               </CardHeader>
             </>

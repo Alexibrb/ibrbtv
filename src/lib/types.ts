@@ -7,4 +7,5 @@ export type Video = {
   category: string;
   scheduledAt?: string;
   createdAt: string;
+  viewCount?: number;
 };

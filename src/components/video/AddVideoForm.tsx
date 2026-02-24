@@ -93,6 +93,7 @@ export default function AddVideoForm() {
         isLive: false,
         category: state.category,
         scheduledAt: state.scheduledAt || '',
+        viewCount: 0,
       };
 
       addDocumentNonBlocking(firestore, 'videos', newVideo);

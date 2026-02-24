@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Clock } from 'lucide-react';
+import { Pencil, Trash2, Clock, Eye } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import EditVideoDialog from './EditVideoDialog';
@@ -111,7 +111,16 @@ export default function VideoListManager() {
                   <li key={video.id} className="grid grid-cols-[1fr_auto] items-center gap-4 p-3 rounded-lg border">
                     <div className="min-w-0">
                        <p className="font-semibold">{video.title}</p>
-                       <p className="text-sm text-muted-foreground">{video.category} - {video.isLive ? 'AO VIVO' : 'Replay'}</p>
+                       <div className="flex items-center gap-x-3 text-sm text-muted-foreground flex-wrap">
+                         <span>{video.category}</span>
+                         <span className="text-gray-400">&middot;</span>
+                         <div className="flex items-center gap-1.5">
+                           <Eye className="h-4 w-4" />
+                           <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                         </div>
+                         <span className="text-gray-400">&middot;</span>
+                         <span>{video.isLive ? 'AO VIVO' : 'Replay'}</span>
+                       </div>
                        {video.scheduledAt && (
                          <Badge variant="outline" className="mt-2 text-xs">
                             <Clock className="h-3 w-3 mr-1" />
