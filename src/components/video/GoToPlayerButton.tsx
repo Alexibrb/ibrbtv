@@ -13,26 +13,31 @@ export default function GoToPlayerButton({ playerRef }: GoToPlayerButtonProps) {
   const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
+    const element = playerRef.current;
+    if (!element) {
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Mostra o botão se o player não estiver visível (ou seja, rolado para fora da tela por cima)
-        setShowButton(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+        const isAboveScreen = entry.boundingClientRect.top < 0;
+        const isOutOfView = !entry.isIntersecting;
+
+        if (isOutOfView && isAboveScreen) {
+          setShowButton(true);
+        } else {
+          setShowButton(false);
+        }
       },
       {
-        root: null, // Observa em relação ao viewport
-        threshold: 0.1, // O botão aparece quando menos de 10% do player está visível
+        threshold: 0,
       }
     );
 
-    const currentRef = playerRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
+    observer.observe(element);
 
     return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
+      observer.unobserve(element);
     };
   }, [playerRef]);
 
