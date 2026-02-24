@@ -20,6 +20,8 @@ import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
 import { orderBy, doc, updateDoc, increment } from 'firebase/firestore';
 import { Button } from '../ui/button';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const ALL_CATEGORIES = 'Todos';
@@ -59,7 +61,12 @@ export default function VideoDashboard() {
     // Increment view count in Firestore, non-blocking
     const videoRef = doc(firestore, 'videos', video.id);
     updateDoc(videoRef, { viewCount: increment(1) }).catch(err => {
-        console.error("Failed to increment view count", err);
+        const permissionError = new FirestorePermissionError({
+            path: videoRef.path,
+            operation: 'update',
+            requestResourceData: { viewCount: 'increment(1)' },
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
     
     setCurrentVideoId(video.id);
