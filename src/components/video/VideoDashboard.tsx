@@ -27,7 +27,7 @@ type Category = { name: string };
 
 export default function VideoDashboard() {
   const { firestore } = useFirebase();
-  const [currentVideo, setCurrentVideo] = useState<WithId<Video> | null>(null);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [now, setNow] = useState(new Date());
@@ -50,29 +50,36 @@ export default function VideoDashboard() {
     return () => clearInterval(timer);
   }, []);
   
-  const handleSelectVideo = (video: WithId<Video>) => {
-    setCurrentVideo(currentVideo => {
-        if(currentVideo?.id === video.id) return currentVideo;
+  const handleClickVideo = (video: WithId<Video>) => {
+    if (currentVideoId === video.id) return;
 
-        // Increment view count in Firestore, non-blocking
-        const videoRef = doc(firestore, 'videos', video.id);
-        updateDoc(videoRef, { viewCount: increment(1) }).catch(err => {
-            console.error("Failed to increment view count", err);
-        });
-        
-        let videoToPlay = video;
-        if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
-          try {
-            const urlWithAutoplay = new URL(video.youtubeUrl);
-            urlWithAutoplay.searchParams.set('autoplay', '1');
-            videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
-          } catch (e) {
-            // Ignore invalid URL
-          }
-        }
-        return videoToPlay;
+    // Increment view count in Firestore, non-blocking
+    const videoRef = doc(firestore, 'videos', video.id);
+    updateDoc(videoRef, { viewCount: increment(1) }).catch(err => {
+        console.error("Failed to increment view count", err);
     });
+    
+    setCurrentVideoId(video.id);
   };
+  
+  const currentVideo = useMemo(() => {
+    if (!currentVideoId || !allVideos) return null;
+    const video = allVideos.find(v => v.id === currentVideoId);
+    if (!video) return null;
+    
+    let videoToPlay = video;
+    // Add autoplay for non-live videos
+    if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
+      try {
+        const urlWithAutoplay = new URL(video.youtubeUrl);
+        urlWithAutoplay.searchParams.set('autoplay', '1');
+        videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
+      } catch (e) {
+        // Ignore invalid URL, play without autoplay
+      }
+    }
+    return videoToPlay;
+  }, [currentVideoId, allVideos]);
 
   const { scheduledVideos, catalogVideos } = useMemo(() => {
     if (!allVideos) {
@@ -148,30 +155,23 @@ export default function VideoDashboard() {
   useEffect(() => {
     if (videosLoading) return;
 
-    // Don't change video if the current one is still visible
-    if (currentVideo && allVisibleCatalogVideos.some(v => v.id === currentVideo.id)) {
-        return;
-    }
-    
-    // Don't select a video from the catalog if there are none and there are scheduled videos
-    if(allVisibleCatalogVideos.length === 0 && scheduledVideos.length > 0) {
-        return;
+    const isCurrentVideoVisible = allVisibleCatalogVideos.some(v => v.id === currentVideoId);
+
+    // If a video is selected and it's still in the visible list, do nothing.
+    if (currentVideoId && isCurrentVideoVisible) {
+      return;
     }
 
-    // Select a video if one isn't selected or the current one disappeared
+    // If there are visible videos in the catalog, select one.
     if (allVisibleCatalogVideos.length > 0) {
-        const live = allVisibleCatalogVideos.find(v => v.isLive);
-        if (live) {
-            handleSelectVideo(live);
-        } else {
-            handleSelectVideo(allVisibleCatalogVideos[0]);
-        }
-    } else {
-        // Clear video if no videos are visible
-        setCurrentVideo(null);
+      const videoToSelect = allVisibleCatalogVideos.find(v => v.isLive) || allVisibleCatalogVideos[0];
+      setCurrentVideoId(videoToSelect.id);
+    } 
+    // If there are no visible videos...
+    else {
+      setCurrentVideoId(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVisibleCatalogVideos, scheduledVideos, videosLoading]);
+  }, [allVisibleCatalogVideos, videosLoading, currentVideoId]);
 
 
   if (videosLoading || categoriesLoading) {
@@ -184,16 +184,16 @@ export default function VideoDashboard() {
     return (
       <button
         key={video.id}
-        onClick={() => handleSelectVideo(video)}
+        onClick={() => handleClickVideo(video)}
         className={cn(
           'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
-          currentVideo?.id === video.id && 'bg-success text-success-foreground hover:bg-success/90'
+          currentVideoId === video.id && 'bg-success text-success-foreground hover:bg-success/90'
         )}
-        aria-current={currentVideo?.id === video.id}
+        aria-current={currentVideoId === video.id}
       >
         <div className={cn(
           'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
-          currentVideo?.id === video.id ? 'bg-white/20' : 'bg-primary/10 text-primary'
+          currentVideoId === video.id ? 'bg-white/20' : 'bg-primary/10 text-primary'
         )}>
           {video.isLive ? (
             <Radio className="h-6 w-6 animate-pulse" />
@@ -380,5 +380,7 @@ export function DashboardSkeleton() {
         </div>
     );
 }
+
+    
 
     
