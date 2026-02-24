@@ -14,7 +14,7 @@ service cloud.firestore {
       allow create, delete: if request.auth != null;
       allow update: if request.auth != null || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']) &&
-        request.resource.data.viewCount > resource.data.viewCount
+        request.resource.data.viewCount == resource.data.viewCount + 1
       );
     }
 
