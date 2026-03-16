@@ -125,7 +125,7 @@ export default function VideoDashboard() {
 
     const olderVideos = filtered.filter(v => {
       const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
-      return !videoDate || videoDate.getTime() < todayStart.getTime();
+      return !date || date.getTime() < todayStart.getTime();
     });
 
     const shuffledOld = [...olderVideos];
@@ -135,7 +135,7 @@ export default function VideoDashboard() {
     }
 
     return [...todayVideos, ...shuffledOld];
-  }, [catalogVideos, selectedCategory, searchTerm]);
+  }, [catalogVideos, selectedCategory, searchTerm, now]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
     const live = processedCatalog.find(v => v.isLive) || null;
@@ -193,10 +193,10 @@ export default function VideoDashboard() {
   const isVertical = currentVideo?.youtubeUrl.includes('facebook.com') || currentVideo?.youtubeUrl.includes('instagram.com');
 
   const summary = currentVideo?.summary || '';
-  const needsExpansion = summary.length > 250;
+  const needsExpansion = summary.length > 50;
   const displayedSummary = isDescriptionExpanded || !needsExpansion 
     ? summary 
-    : summary.slice(0, 250) + '...';
+    : summary.slice(0, 50) + '...';
 
   return (
     <>
