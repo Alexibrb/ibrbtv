@@ -218,6 +218,8 @@ export default function VideoDashboard() {
     );
   };
 
+  const isVertical = currentVideo?.youtubeUrl.includes('facebook.com') || currentVideo?.youtubeUrl.includes('instagram.com');
+
   return (
     <>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -225,7 +227,10 @@ export default function VideoDashboard() {
           <Card className="overflow-hidden shadow-2xl bg-card/50 border-none">
             {currentVideo ? (
               <>
-                <div className="aspect-video w-full bg-black relative">
+                <div className={cn(
+                  "w-full bg-black relative mx-auto transition-all duration-500 overflow-hidden",
+                  isVertical ? "aspect-[9/16] max-w-[400px]" : "aspect-video"
+                )}>
                   <iframe
                     key={currentVideo.id}
                     width="100%"
