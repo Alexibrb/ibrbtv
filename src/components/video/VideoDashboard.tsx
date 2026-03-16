@@ -125,7 +125,7 @@ export default function VideoDashboard() {
 
     const olderVideos = filtered.filter(v => {
       const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
-      return !date || date.getTime() < todayStart.getTime();
+      return !videoDate || videoDate.getTime() < todayStart.getTime();
     });
 
     const shuffledOld = [...olderVideos];
