@@ -18,7 +18,7 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
-import { doc, updateDoc, increment, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -201,11 +201,13 @@ export default function VideoDashboard() {
   }, [currentVideoId, allVideosSorted]);
 
   const allVisibleCatalogVideos = useMemo(() => {
-    return [
-     ...(liveVideo ? [liveVideo] : []),
-     ...pastVideos,
-   ].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
- }, [liveVideo, pastVideos]);
+    const combined = [
+      ...(liveVideo ? [liveVideo] : []),
+      ...pastVideos,
+    ];
+    // Remove duplicatas mantendo a ordem
+    return combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+  }, [liveVideo, pastVideos]);
 
   useEffect(() => {
     if (videosLoading) return;
