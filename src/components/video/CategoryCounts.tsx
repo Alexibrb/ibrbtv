@@ -76,11 +76,11 @@ export function CategoryCounts() {
       </div>
       
       <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-2 bg-background/40 rounded-xl border border-border/10 shadow-inner">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-2 bg-background/40 rounded-xl border border-border/10 shadow-inner">
           {Object.entries(categoryStats.counts)
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([category, count]) => (
-              <div key={category} className="flex flex-col items-center justify-center p-2 rounded-lg bg-secondary/10 border border-border/5 hover:bg-secondary/20 transition-colors shadow-sm">
+              <div key={category} className="flex flex-col items-center justify-center p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors shadow-sm">
                 <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center w-full mb-1 px-1 leading-tight line-clamp-2">
                   {category}
                 </span>
