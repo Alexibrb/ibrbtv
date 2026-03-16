@@ -19,7 +19,7 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
-import { orderBy, doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -39,9 +39,15 @@ export default function VideoDashboard() {
   const playerRef = useRef<HTMLDivElement>(null);
 
 
-  // Buscamos ordenado por 'order' (ascendente) para respeitar a escolha do admin
-  const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('order', 'asc'));
+  // Buscamos sem orderBy no servidor para evitar que vídeos sem o campo sumam
+  const { data: fetchedVideos, loading: videosLoading } = useCollection<Video>('videos');
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
+
+  // Ordenamos em memória para garantir compatibilidade com vídeos antigos
+  const allVideos = useMemo(() => {
+    if (!fetchedVideos) return null;
+    return [...fetchedVideos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [fetchedVideos]);
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(categoriesData?.map(c => c.name) || [])].sort();
@@ -121,7 +127,7 @@ export default function VideoDashboard() {
       });
 
     // Se a categoria for "Todos" e não houver busca, aplicamos a lógica aleatória
-    // que você solicitou anteriormente, mas mantendo o vídeo atual no topo
+    // mantendo o vídeo atual no topo
     if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
       for (let i = filteredCatalogVideos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));

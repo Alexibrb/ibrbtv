@@ -13,8 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '../ui/badge';
 import { useFirebase, useCollection, WithId, setDocumentNonBlocking } from '@/firebase';
-import { deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { deleteDoc, doc } from 'firebase/firestore';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { cn } from '@/lib/utils';
 
 
 const ALL_CATEGORIES = 'Todas as Categorias';
@@ -28,13 +29,15 @@ export default function VideoListManager() {
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
   const [orderedVideos, setOrderedVideos] = useState<WithId<Video>[]>([]);
 
-  // Buscamos ordenado por 'order' (ascendente)
-  const { data: videos, loading: videosLoading } = useCollection<Video>('videos', orderBy('order', 'asc'));
+  // Buscamos sem orderBy para evitar que vídeos antigos sem o campo sumam
+  const { data: videos, loading: videosLoading } = useCollection<Video>('videos');
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 
   useEffect(() => {
     if (videos) {
-      setOrderedVideos(videos);
+      // Ordenamos em memória para garantir compatibilidade
+      const sorted = [...videos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      setOrderedVideos(sorted);
     }
   }, [videos]);
 
@@ -79,8 +82,7 @@ export default function VideoListManager() {
 
     setOrderedVideos(items);
 
-    // Atualiza a ordem no Firestore para todos os itens afetados ou simplesmente re-indexa
-    // Para simplificar e garantir ordem perfeita, re-indexamos com gaps de 10
+    // Atualiza a ordem no Firestore para todos os itens afetados
     items.forEach((video, index) => {
       const newOrder = index * 10;
       if (video.order !== newOrder) {
@@ -106,7 +108,7 @@ export default function VideoListManager() {
       });
   }, [orderedVideos, selectedCategory, searchTerm]);
 
-  // Desabilita drag and drop se houver filtros ativos para evitar confusão na ordem absoluta
+  // Desabilita drag and drop se houver filtros ativos
   const isFiltering = searchTerm !== '' || selectedCategory !== ALL_CATEGORIES;
 
   return (
