@@ -5,7 +5,7 @@ import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Play, Radio, Clock, Eye, Share2 } from 'lucide-react';
+import { Play, Radio, Clock, Eye } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import {
@@ -256,7 +256,7 @@ export default function VideoDashboard() {
                       </div>
                     </div>
                   </div>
-                  <CardDescription className="text-base leading-relaxed text-foreground/70">
+                  <CardDescription className="text-base leading-relaxed text-foreground/70 whitespace-pre-wrap">
                     {currentVideo.summary}
                   </CardDescription>
                 </CardHeader>
