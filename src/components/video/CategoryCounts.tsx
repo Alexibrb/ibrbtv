@@ -76,15 +76,15 @@ export function CategoryCounts() {
       </div>
       
       <CollapsibleContent className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up overflow-hidden">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4 bg-background/40 rounded-xl border border-border/10 shadow-inner">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-background/40 rounded-xl border border-border/10 shadow-inner">
           {Object.entries(categoryStats.counts)
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([category, count]) => (
-              <div key={category} className="flex flex-col items-center justify-center p-3 rounded-lg bg-secondary/10 border border-border/5 hover:bg-secondary/20 transition-colors shadow-sm min-h-[80px]">
-                <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center w-full mb-1 px-1 leading-tight line-clamp-2">
+              <div key={category} className="flex flex-col items-center justify-center p-4 rounded-lg bg-secondary/10 border border-border/5 hover:bg-secondary/20 transition-colors shadow-sm min-h-[100px]">
+                <span className="text-sm sm:text-base font-bold text-muted-foreground uppercase tracking-tight text-center w-full mb-2 px-1 leading-tight line-clamp-2">
                   {category}
                 </span>
-                <span className="text-sm sm:text-base font-black text-foreground">
+                <span className="text-lg sm:text-xl font-black text-foreground">
                   {count}
                 </span>
               </div>
