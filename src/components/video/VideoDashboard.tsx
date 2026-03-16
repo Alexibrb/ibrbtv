@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -38,22 +37,13 @@ export default function VideoDashboard() {
   const [completedTimers, setCompletedTimers] = useState<string[]>([]);
   const playerRef = useRef<HTMLDivElement>(null);
 
-
-  // Buscamos sem orderBy no servidor para evitar que vídeos sem o campo sumam
   const { data: fetchedVideos, loading: videosLoading } = useCollection<Video>('videos');
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
-
-  // Ordenamos em memória para garantir compatibilidade com vídeos antigos
-  const allVideos = useMemo(() => {
-    if (!fetchedVideos) return null;
-    return [...fetchedVideos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }, [fetchedVideos]);
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(categoriesData?.map(c => c.name) || [])].sort();
     return [ALL_CATEGORIES, ...uniqueCategories];
   }, [categoriesData]);
-  
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -87,56 +77,46 @@ export default function VideoDashboard() {
     setCurrentVideoId(video.id);
   };
   
-  const currentVideo = useMemo(() => {
-    if (!currentVideoId || !allVideos) return null;
-    const video = allVideos.find(v => v.id === currentVideoId);
-    if (!video) return null;
-    
-    let videoToPlay = video;
-    // Autoplay apenas para YouTube
-    if (video.youtubeUrl.includes('youtube.com') && !video.youtubeUrl.includes('autoplay=1')) {
-      try {
-        const urlWithAutoplay = new URL(video.youtubeUrl);
-        urlWithAutoplay.searchParams.set('autoplay', '1');
-        videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
-      } catch (e) {}
-    }
-    return videoToPlay;
-  }, [currentVideoId, allVideos]);
+  const allVideosSorted = useMemo(() => {
+    if (!fetchedVideos) return null;
+    return [...fetchedVideos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [fetchedVideos]);
 
   const { scheduledVideos, catalogVideos } = useMemo(() => {
-    if (!allVideos) return { scheduledVideos: [], catalogVideos: [] };
+    if (!allVideosSorted) return { scheduledVideos: [], catalogVideos: [] };
 
-    const scheduled = allVideos.filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
+    const scheduled = allVideosSorted.filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
       .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
       
-    const catalog = allVideos.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
+    const catalog = allVideosSorted.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
     
     return { scheduledVideos: scheduled, catalogVideos: catalog };
-  }, [allVideos, now]);
+  }, [allVideosSorted, now]);
+
+  // Lógica de embaralhamento estável para o usuário
+  const shuffledCatalog = useMemo(() => {
+    let baseList = [...catalogVideos];
+    
+    // Só embaralhamos se for a categoria "Todos" e não houver busca
+    if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
+      for (let i = baseList.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [baseList[i], baseList[j]] = [baseList[j], baseList[i]];
+      }
+    } else {
+      // Se houver categoria ou busca, apenas filtramos
+      baseList = baseList.filter(v => {
+        const matchCategory = selectedCategory === ALL_CATEGORIES || v.category === selectedCategory;
+        const matchSearch = !searchTerm || v.title.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchCategory && matchSearch;
+      });
+    }
+    return baseList;
+  }, [catalogVideos, selectedCategory, searchTerm]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
-    let filteredCatalogVideos = [...catalogVideos]
-      .filter(v => {
-        if (selectedCategory === ALL_CATEGORIES) return true;
-        return v.category === selectedCategory;
-      })
-      .filter(v => {
-        if (!searchTerm) return true;
-        return v.title.toLowerCase().includes(searchTerm.toLowerCase());
-      });
-
-    // Se a categoria for "Todos" e não houver busca, aplicamos a lógica aleatória
-    // mantendo o vídeo atual no topo
-    if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
-      for (let i = filteredCatalogVideos.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [filteredCatalogVideos[i], filteredCatalogVideos[j]] = [filteredCatalogVideos[j], filteredCatalogVideos[i]];
-      }
-    }
-
-    const live = filteredCatalogVideos.find(v => v.isLive) || null;
-    let past = filteredCatalogVideos.filter(v => !v.isLive);
+    const live = shuffledCatalog.find(v => v.isLive) || null;
+    let past = shuffledCatalog.filter(v => !v.isLive);
     const newlyAvailableIds = new Set<string>();
 
     // Garante que o vídeo atual esteja no topo da lista se for selecionado
@@ -157,8 +137,24 @@ export default function VideoDashboard() {
     newlyAvailable.forEach(v => newlyAvailableIds.add(v.id));
 
     return { liveVideo: live, pastVideos: past, newlyAvailableVideoIds: newlyAvailableIds };
-  }, [catalogVideos, selectedCategory, searchTerm, currentVideoId]);
+  }, [shuffledCatalog, currentVideoId]);
   
+  const currentVideo = useMemo(() => {
+    if (!currentVideoId || !allVideosSorted) return null;
+    const video = allVideosSorted.find(v => v.id === currentVideoId);
+    if (!video) return null;
+    
+    let videoToPlay = video;
+    if (video.youtubeUrl.includes('youtube.com') && !video.youtubeUrl.includes('autoplay=1')) {
+      try {
+        const urlWithAutoplay = new URL(video.youtubeUrl);
+        urlWithAutoplay.searchParams.set('autoplay', '1');
+        videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
+      } catch (e) {}
+    }
+    return videoToPlay;
+  }, [currentVideoId, allVideosSorted]);
+
   const allVisibleCatalogVideos = useMemo(() => {
     return [
      ...(liveVideo ? [liveVideo] : []),

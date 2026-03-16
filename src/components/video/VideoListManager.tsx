@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Clock, Eye, GripVertical } from 'lucide-react';
+import { Pencil, Trash2, Clock, Eye, GripVertical, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import EditVideoDialog from './EditVideoDialog';
@@ -16,6 +15,7 @@ import { useFirebase, useCollection, WithId, setDocumentNonBlocking } from '@/fi
 import { deleteDoc, doc } from 'firebase/firestore';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 
 const ALL_CATEGORIES = 'Todas as Categorias';
@@ -45,8 +45,13 @@ export default function VideoListManager() {
 
   useEffect(() => {
     if (videos) {
-      // Ordenamos em memória para garantir compatibilidade
-      const sorted = [...videos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      // Ordenamos em memória de forma estrita para o Admin
+      const sorted = [...videos].sort((a, b) => {
+        if ((a.order ?? 0) !== (b.order ?? 0)) {
+          return (a.order ?? 0) - (b.order ?? 0);
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
       setOrderedVideos(sorted);
     }
   }, [videos]);
@@ -129,10 +134,9 @@ export default function VideoListManager() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Gerenciar Vídeos</CardTitle>
           <CardDescription>
-            {isFiltering 
-              ? 'Filtros ativos. Desabilite-os para reordenar os vídeos livremente.' 
-              : 'Arraste os vídeos pelo ícone lateral para mudar a ordem de exibição.'}
+            Visualize e organize a ordem dos vídeos no seu catálogo.
           </CardDescription>
+          
           <div className="flex flex-col gap-4 pt-4 sm:flex-row">
             <Input
               placeholder="Filtrar por título..."
@@ -151,6 +155,15 @@ export default function VideoListManager() {
               </SelectContent>
             </Select>
           </div>
+
+          {isFiltering && (
+            <Alert className="mt-4 bg-primary/5 border-primary/20">
+              <AlertCircle className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-xs text-primary/80">
+                A reordenação manual (arrastar) está desativada enquanto filtros de busca ou categoria estiverem ativos.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
         <CardContent>
           {videosLoading ? (
