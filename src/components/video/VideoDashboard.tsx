@@ -5,7 +5,7 @@ import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Play, Radio, Clock, Eye } from 'lucide-react';
+import { Play, Radio, Clock, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import {
@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
@@ -44,6 +45,7 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [now, setNow] = useState(new Date());
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const playerRef = useRef<HTMLDivElement>(null);
 
   const { data: fetchedVideos, loading: videosLoading } = useCollection<Video>('videos');
@@ -62,6 +64,8 @@ export default function VideoDashboard() {
   useEffect(() => {
     if (currentVideoId && playerRef.current) {
       playerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Reset expansion when changing video
+      setIsDescriptionExpanded(false);
     }
   }, [currentVideoId]);
   
@@ -103,6 +107,7 @@ export default function VideoDashboard() {
       return matchCategory && matchSearch;
     });
 
+    // Only apply shuffle when "Todos" is selected
     if (selectedCategory !== ALL_CATEGORIES) {
       return filtered.sort((a, b) => {
         if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0);
@@ -187,6 +192,12 @@ export default function VideoDashboard() {
 
   const isVertical = currentVideo?.youtubeUrl.includes('facebook.com') || currentVideo?.youtubeUrl.includes('instagram.com');
 
+  const summary = currentVideo?.summary || '';
+  const needsExpansion = summary.length > 250;
+  const displayedSummary = isDescriptionExpanded || !needsExpansion 
+    ? summary 
+    : summary.slice(0, 250) + '...';
+
   return (
     <>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -223,9 +234,24 @@ export default function VideoDashboard() {
                       </div>
                     </div>
                   </div>
-                  <CardDescription className="text-base leading-relaxed text-foreground/70 whitespace-pre-wrap">
-                    {currentVideo.summary}
-                  </CardDescription>
+                  <div className="space-y-3">
+                    <CardDescription className="text-base leading-relaxed text-foreground/70 whitespace-pre-wrap transition-all">
+                      {displayedSummary}
+                    </CardDescription>
+                    {needsExpansion && (
+                      <Button 
+                        variant="link" 
+                        onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                        className="p-0 h-auto text-primary font-bold hover:no-underline flex items-center gap-1"
+                      >
+                        {isDescriptionExpanded ? (
+                          <>Ocultar <ChevronUp className="h-4 w-4" /></>
+                        ) : (
+                          <>Ler mais <ChevronDown className="h-4 w-4" /></>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
               </>
             ) : (
