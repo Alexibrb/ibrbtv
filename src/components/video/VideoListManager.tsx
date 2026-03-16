@@ -28,10 +28,20 @@ export default function VideoListManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
   const [orderedVideos, setOrderedVideos] = useState<WithId<Video>[]>([]);
+  const [enabled, setEnabled] = useState(false);
 
   // Buscamos sem orderBy para evitar que vídeos antigos sem o campo sumam
   const { data: videos, loading: videosLoading } = useCollection<Video>('videos');
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
+
+  // Fix para o dnd no React 18 + Next.js
+  useEffect(() => {
+    const animation = requestAnimationFrame(() => setEnabled(true));
+    return () => {
+      cancelAnimationFrame(animation);
+      setEnabled(false);
+    };
+  }, []);
 
   useEffect(() => {
     if (videos) {
@@ -111,6 +121,8 @@ export default function VideoListManager() {
   // Desabilita drag and drop se houver filtros ativos
   const isFiltering = searchTerm !== '' || selectedCategory !== ALL_CATEGORIES;
 
+  if (!enabled) return null;
+
   return (
     <>
       <Card className="shadow-lg mt-8">
@@ -146,14 +158,14 @@ export default function VideoListManager() {
           ) : filteredVideos.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">Nenhum vídeo encontrado.</p>
           ) : (
-            <ScrollArea className="h-[500px]">
-              <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="videos-list" isDropDisabled={isFiltering}>
-                  {(provided) => (
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="videos-list" isDropDisabled={isFiltering}>
+                {(provided) => (
+                  <ScrollArea className="h-[500px]">
                     <ul 
                       {...provided.droppableProps} 
                       ref={provided.innerRef} 
-                      className="space-y-4 pr-4"
+                      className="space-y-4 pr-4 py-2"
                     >
                       {filteredVideos.map((video, index) => (
                         <Draggable 
@@ -167,14 +179,14 @@ export default function VideoListManager() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className={cn(
-                                "grid grid-cols-[auto_1fr_auto] items-center gap-4 p-3 rounded-lg border bg-card transition-shadow",
-                                snapshot.isDragging && "shadow-2xl border-primary ring-2 ring-primary/20 z-50 bg-accent/10"
+                                "grid grid-cols-[auto_1fr_auto] items-center gap-4 p-3 rounded-lg border bg-card transition-all",
+                                snapshot.isDragging && "shadow-2xl border-primary ring-2 ring-primary/20 z-50 bg-accent/5 scale-[1.02]"
                               )}
                             >
                               <div 
                                 {...provided.dragHandleProps} 
                                 className={cn(
-                                  "p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-primary transition-colors",
+                                  "p-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-primary transition-colors bg-secondary/20 rounded",
                                   isFiltering && "opacity-20 cursor-not-allowed"
                                 )}
                               >
@@ -221,10 +233,10 @@ export default function VideoListManager() {
                       ))}
                       {provided.placeholder}
                     </ul>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            </ScrollArea>
+                  </ScrollArea>
+                )}
+              </Droppable>
+            </DragDropContext>
           )}
         </CardContent>
       </Card>
