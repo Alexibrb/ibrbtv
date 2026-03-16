@@ -11,7 +11,7 @@ export default function LandingPage() {
         <h1 className="font-headline text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
           Seja Bem-vindo
         </h1>
-        <p className="mx-auto max-w-[700px] text-lg text-muted-foreground md:text-xl">
+        <p className="mx-auto max-w-[700px] text-lg text-foreground/70 md:text-xl">
           Sua plataforma para evangelização através de transmissões ao vivo e replays.
         </p>
       </div>
