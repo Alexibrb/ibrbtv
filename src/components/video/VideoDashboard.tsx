@@ -28,15 +28,24 @@ import GoToPlayerButton from './GoToPlayerButton';
 const ALL_CATEGORIES = 'Todos';
 type Category = { name: string };
 
-// Função auxiliar para converter formatos de data do Firebase/JS de forma segura
+// Função auxiliar robusta para converter formatos de data do Firebase/JS
 const getSafeDate = (dateVal: any): Date | null => {
   if (!dateVal) return null;
-  if (dateVal instanceof Timestamp) return dateVal.toDate();
-  if (dateVal instanceof Date) return dateVal;
+  
+  // Verifica se é um Timestamp do Firebase (pela presença de toDate())
+  if (typeof dateVal.toDate === 'function') {
+    return dateVal.toDate();
+  }
+  
+  if (dateVal instanceof Date) {
+    return dateVal;
+  }
+  
   if (typeof dateVal === 'string' || typeof dateVal === 'number') {
     const d = new Date(dateVal);
     return isNaN(d.getTime()) ? null : d;
   }
+  
   return null;
 };
 
@@ -114,7 +123,7 @@ export default function VideoDashboard() {
     return { scheduledVideos: scheduled, catalogVideos: catalog };
   }, [allVideosSorted, now]);
 
-  const shuffledCatalog = useMemo(() => {
+  const processedCatalog = useMemo(() => {
     let filtered = catalogVideos.filter(v => {
       const matchCategory = selectedCategory === ALL_CATEGORIES || v.category === selectedCategory;
       const matchSearch = !searchTerm || v.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -138,7 +147,7 @@ export default function VideoDashboard() {
       return !videoDate || videoDate.getTime() < todayStart.getTime();
     });
 
-    // Embaralha apenas os vídeos antigos
+    // Embaralha apenas os vídeos antigos para manter o catálogo dinâmico
     const shuffledOld = [...olderVideos];
     for (let i = shuffledOld.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -149,20 +158,21 @@ export default function VideoDashboard() {
   }, [catalogVideos, selectedCategory, searchTerm]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
-    const live = shuffledCatalog.find(v => v.isLive) || null;
-    let past = [...shuffledCatalog.filter(v => !v.isLive)];
+    const live = processedCatalog.find(v => v.isLive) || null;
+    let past = [...processedCatalog.filter(v => !v.isLive)];
     const newlyAvailableIds = new Set<string>();
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    past.forEach(v => {
+    processedCatalog.forEach(v => {
       const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
       if (videoDate && videoDate.getTime() >= todayStart.getTime()) {
         newlyAvailableIds.add(v.id);
       }
     });
 
+    // Garante que o vídeo selecionado (se houver) apareça no topo para fácil acesso
     if (currentVideoId) {
       const selectedVideoIndex = past.findIndex(v => v.id === currentVideoId);
       if (selectedVideoIndex > 0) {
@@ -172,7 +182,7 @@ export default function VideoDashboard() {
     }
     
     return { liveVideo: live, pastVideos: past, newlyAvailableVideoIds: newlyAvailableIds };
-  }, [shuffledCatalog, currentVideoId]);
+  }, [processedCatalog, currentVideoId]);
   
   const currentVideo = useMemo(() => {
     if (!currentVideoId || !allVideosSorted) return null;
