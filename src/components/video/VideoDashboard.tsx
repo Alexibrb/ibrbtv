@@ -19,7 +19,6 @@ import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
-import { Button } from '../ui/button';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import GoToPlayerButton from './GoToPlayerButton';
@@ -45,7 +44,6 @@ export default function VideoDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [now, setNow] = useState(new Date());
-  const [completedTimers, setCompletedTimers] = useState<string[]>([]);
   const playerRef = useRef<HTMLDivElement>(null);
 
   const { data: fetchedVideos, loading: videosLoading } = useCollection<Video>('videos');
@@ -105,6 +103,15 @@ export default function VideoDashboard() {
       return matchCategory && matchSearch;
     });
 
+    // Se for uma categoria específica, respeita a ordem do Admin (campo order)
+    if (selectedCategory !== ALL_CATEGORIES) {
+      return filtered.sort((a, b) => {
+        if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0);
+        return (getSafeDate(b.createdAt)?.getTime() || 0) - (getSafeDate(a.createdAt)?.getTime() || 0);
+      });
+    }
+
+    // Se for a categoria "Todos", aplica a lógica de novos no topo + aleatório
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -245,7 +252,7 @@ export default function VideoDashboard() {
                                       <p className="font-semibold text-sm">{video.title}</p>
                                       <div className="w-full flex justify-between items-center mt-1">
                                           <span className="text-[10px] text-muted-foreground font-mono uppercase">Começa em:</span>
-                                          <CountdownTimer targetDate={video.scheduledAt!} onComplete={() => setCompletedTimers(prev => [...prev, video.id])} className="text-sm font-bold font-mono text-primary" />
+                                          <CountdownTimer targetDate={video.scheduledAt!} onComplete={() => {}} className="text-sm font-bold font-mono text-primary" />
                                       </div>
                                   </div>
                               ))}
