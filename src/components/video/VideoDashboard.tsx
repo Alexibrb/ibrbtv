@@ -55,8 +55,6 @@ export default function VideoDashboard() {
   }, []);
 
   useEffect(() => {
-    // When a new video is selected, scroll the player into view.
-    // This is more reliable than calling it directly in the click handler.
     if (currentVideoId && playerRef.current) {
       playerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -68,7 +66,6 @@ export default function VideoDashboard() {
         return;
     }
 
-    // Increment view count in Firestore, non-blocking
     const videoRef = doc(firestore, 'videos', video.id);
     updateDoc(videoRef, { viewCount: increment(1) }).catch(err => {
         const permissionError = new FirestorePermissionError({
@@ -88,14 +85,13 @@ export default function VideoDashboard() {
     if (!video) return null;
     
     let videoToPlay = video;
-    // Add autoplay for non-live videos
     if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
       try {
         const urlWithAutoplay = new URL(video.youtubeUrl);
         urlWithAutoplay.searchParams.set('autoplay', '1');
         videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
       } catch (e) {
-        // Ignore invalid URL, play without autoplay
+        // Ignore invalid URL
       }
     }
     return videoToPlay;
@@ -118,8 +114,7 @@ export default function VideoDashboard() {
   }, [allVideos, now]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
-    // Filter catalog videos based on UI controls
-    const filteredCatalogVideos = catalogVideos
+    let filteredCatalogVideos = [...catalogVideos]
       .filter(v => {
         if (selectedCategory === ALL_CATEGORIES) return true;
         return v.category === selectedCategory;
@@ -129,20 +124,26 @@ export default function VideoDashboard() {
         return v.title.toLowerCase().includes(searchTerm.toLowerCase());
       });
 
+    // Randomize order if "Todos" is selected and no search is active
+    if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
+      for (let i = filteredCatalogVideos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [filteredCatalogVideos[i], filteredCatalogVideos[j]] = [filteredCatalogVideos[j], filteredCatalogVideos[i]];
+      }
+    }
+
     const live = filteredCatalogVideos.find(v => v.isLive) || null;
     let past = filteredCatalogVideos.filter(v => !v.isLive);
     const newlyAvailableIds = new Set<string>();
 
-    // Move selected video to the top of the 'past' list
     if (currentVideoId) {
       const selectedVideoIndex = past.findIndex(v => v.id === currentVideoId);
-      if (selectedVideoIndex > 0) { // if found and not already at the top
+      if (selectedVideoIndex > 0) {
         const [selectedVideo] = past.splice(selectedVideoIndex, 1);
         past.unshift(selectedVideo);
       }
     }
     
-    // This logic just identifies "new" videos for the sparkle icon, which is fine to keep.
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -171,17 +172,14 @@ export default function VideoDashboard() {
 
     const isCurrentVideoVisible = allVisibleCatalogVideos.some(v => v.id === currentVideoId);
 
-    // If a video is selected and it's still in the visible list, do nothing.
     if (currentVideoId && isCurrentVideoVisible) {
       return;
     }
 
-    // If there are visible videos in the catalog, select one.
     if (allVisibleCatalogVideos.length > 0) {
       const videoToSelect = allVisibleCatalogVideos.find(v => v.isLive) || allVisibleCatalogVideos[0];
       setCurrentVideoId(videoToSelect.id);
     } 
-    // If there are no visible videos...
     else {
       setCurrentVideoId(null);
     }
@@ -211,12 +209,12 @@ export default function VideoDashboard() {
             ? 'bg-white/20'
             : video.isLive
             ? 'bg-primary/10 text-primary'
-            : 'bg-destructive text-destructive-foreground'
+            : 'bg-destructive text-white'
         )}>
           {video.isLive ? (
             <Radio className="h-6 w-6 animate-pulse" />
           ) : (
-            <Play className="h-6 w-6" />
+            <Play className="h-6 w-6 fill-current" />
           )}
         </div>
         <div className="min-w-0 flex-grow">
@@ -401,11 +399,3 @@ export function DashboardSkeleton() {
         </div>
     );
 }
-
-    
-
-    
-
-    
-
-    
