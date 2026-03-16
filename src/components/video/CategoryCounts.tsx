@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { useCollection } from '@/firebase';
 import type { Video } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type Category = { name: string };
@@ -34,29 +33,35 @@ export function CategoryCounts() {
 
   if (videosLoading || categoriesLoading) {
     return (
-        <div className="flex items-center flex-wrap gap-2">
-            <Skeleton key="total" className="h-6 w-20 rounded-full" />
-            <Skeleton key="cat1" className="h-6 w-24 rounded-full" />
-            <Skeleton key="cat2" className="h-6 w-28 rounded-full" />
-            <Skeleton key="cat3" className="h-6 w-20 rounded-full" />
+        <div className="flex items-center gap-2 overflow-hidden py-1">
+            <Skeleton className="h-6 w-16 rounded-full shrink-0" />
+            <Skeleton className="h-6 w-20 rounded-full shrink-0" />
+            <Skeleton className="h-6 w-24 rounded-full shrink-0" />
         </div>
     );
   }
 
   if (!categoryStats || Object.keys(categoryStats.counts).length === 0) {
-    return <p className="text-sm text-muted-foreground">Nenhuma categoria encontrada.</p>;
+    return null;
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 max-w-4xl">
-      <Badge variant="success" className="text-sm px-4 py-1.5 rounded-lg shadow-sm">
-          Total de Vídeos: <span className="font-bold ml-1.5">{categoryStats.totalVideos}</span>
-      </Badge>
-      {Object.entries(categoryStats.counts).sort((a, b) => a[0].localeCompare(b[0])).map(([category, count]) => (
-        <Badge key={category} variant="secondary" className="font-normal px-4 py-1.5 rounded-lg bg-card border-none shadow-sm text-foreground/80">
-          {category}: <span className="font-bold ml-1.5">{count}</span>
-        </Badge>
-      ))}
+    <div className="w-full flex items-center gap-2 bg-muted/20 p-1 rounded-xl border border-border/30">
+      <div className="shrink-0 flex items-center bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-sm">
+          <span className="text-[9px] font-bold uppercase mr-1.5 opacity-80">Total</span>
+          <span className="text-xs font-black">{categoryStats.totalVideos}</span>
+      </div>
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-1 scroll-smooth">
+        {Object.entries(categoryStats.counts)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([category, count]) => (
+            <div key={category} className="flex items-center gap-1.5 shrink-0 px-2 py-0.5 rounded-md bg-background/40 border border-border/10">
+              <span className="text-[9px] font-medium text-muted-foreground whitespace-nowrap uppercase tracking-tight">{category}</span>
+              <span className="text-[10px] font-bold text-foreground/70">{count}</span>
+            </div>
+          ))
+        }
+      </div>
     </div>
   );
 }
