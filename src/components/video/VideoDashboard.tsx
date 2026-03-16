@@ -103,7 +103,6 @@ export default function VideoDashboard() {
       return matchCategory && matchSearch;
     });
 
-    // Se for uma categoria específica, respeita a ordem do Admin (campo order)
     if (selectedCategory !== ALL_CATEGORIES) {
       return filtered.sort((a, b) => {
         if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0);
@@ -111,7 +110,6 @@ export default function VideoDashboard() {
       });
     }
 
-    // Se for a categoria "Todos", aplica a lógica de novos no topo + aleatório
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -264,11 +262,20 @@ export default function VideoDashboard() {
           <Card className="shadow-xl border-none bg-card/50">
             <CardHeader className="pb-4">
                <CardTitle className="font-headline text-2xl">Catálogo</CardTitle>
-               <div className="flex flex-col gap-3 pt-4 sm:flex-row">
-                  <Input placeholder="Filtrar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 text-sm bg-background/50" />
+               <div className="flex flex-col gap-3 pt-4">
+                  <Input 
+                    placeholder="Filtrar por nome..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="h-10 text-sm bg-background/50 w-full" 
+                  />
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="h-9 text-sm w-[120px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                      <SelectTrigger className="h-10 text-sm w-full">
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
                   </Select>
                </div>
             </CardHeader>
