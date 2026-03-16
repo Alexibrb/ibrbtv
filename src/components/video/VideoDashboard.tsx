@@ -193,22 +193,23 @@ export default function VideoDashboard() {
 
   const renderVideoItem = (video: WithId<Video>) => {
     const isNew = newlyAvailableVideoIds.has(video.id);
+    const isActive = currentVideoId === video.id;
     return (
       <button
         key={video.id}
         onClick={() => handleClickVideo(video)}
         className={cn(
-          'group flex items-center gap-4 rounded-lg border p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring',
-          currentVideoId === video.id && 'bg-success text-success-foreground hover:bg-success/90'
+          'group flex items-center gap-4 rounded-xl p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring border border-transparent',
+          isActive ? 'bg-success text-success-foreground' : 'bg-secondary/20 border-border/40'
         )}
-        aria-current={currentVideoId === video.id}
+        aria-current={isActive}
       >
         <div className={cn(
-          'flex h-12 w-12 shrink-0 items-center justify-center rounded-md',
-          currentVideoId === video.id
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg shadow-sm',
+          isActive
             ? 'bg-white/20'
             : video.isLive
-            ? 'bg-primary/10 text-primary'
+            ? 'bg-primary/20 text-primary'
             : 'bg-destructive text-white'
         )}>
           {video.isLive ? (
@@ -218,18 +219,18 @@ export default function VideoDashboard() {
           )}
         </div>
         <div className="min-w-0 flex-grow">
-          <p className="font-semibold">
+          <p className={cn("font-semibold truncate", isActive ? "text-white" : "text-foreground")}>
             {isNew && !video.isLive && '✨ '}
             {video.title}
           </p>
-           <div className="flex items-center text-xs text-muted-foreground mt-1">
+           <div className={cn("flex items-center text-[10px] mt-1 gap-1", isActive ? "text-white/80" : "text-muted-foreground")}>
             {video.isLive ? (
-              <Badge variant="destructive" className="animate-pulse">
+              <Badge variant="destructive" className="animate-pulse h-4 px-1 text-[8px]">
                 AO VIVO
               </Badge>
             ) : (
-                <div className="flex items-center gap-1.5">
-                    <Eye className="h-4 w-4" />
+                <div className="flex items-center gap-1">
+                    <Eye className="h-3 w-3" />
                     <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
                 </div>
             )}
@@ -243,10 +244,10 @@ export default function VideoDashboard() {
     <>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2" ref={playerRef}>
-          <Card className="overflow-hidden shadow-lg">
+          <Card className="overflow-hidden shadow-2xl bg-card/50 border-none">
             {currentVideo ? (
               <>
-                <div className="aspect-video w-full bg-card">
+                <div className="aspect-video w-full bg-black">
                   <iframe
                     key={currentVideo.id}
                     width="100%"
@@ -258,13 +259,17 @@ export default function VideoDashboard() {
                     className="border-0"
                   ></iframe>
                 </div>
-                <CardHeader>
-                  <CardTitle className="font-headline text-3xl">{currentVideo.title}</CardTitle>
-                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground pt-2">
-                      <Eye className="h-4 w-4" />
-                      <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+                <CardHeader className="space-y-4">
+                  <div className="space-y-2">
+                    <CardTitle className="font-headline text-3xl md:text-4xl leading-tight">{currentVideo.title}</CardTitle>
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground/80 font-medium">
+                        <Eye className="h-4 w-4" />
+                        <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+                    </div>
                   </div>
-                  <CardDescription className="pt-2">{currentVideo.summary}</CardDescription>
+                  <CardDescription className="text-base leading-relaxed text-foreground/70">
+                    {currentVideo.summary}
+                  </CardDescription>
                 </CardHeader>
               </>
             ) : (
@@ -280,41 +285,38 @@ export default function VideoDashboard() {
 
         <div className="lg:col-span-1 flex flex-col gap-8">
           {scheduledVideos.length > 0 && (
-              <Card className="shadow-lg">
+              <Card className="shadow-lg border-none bg-card/50">
                   <CardHeader>
-                      <CardTitle className="font-headline flex items-center gap-2">
-                          <Clock className="h-6 w-6 text-primary" />
+                      <CardTitle className="font-headline flex items-center gap-2 text-xl">
+                          <Clock className="h-5 w-5 text-primary" />
                           Próximas Transmissões
                       </CardTitle>
-                      <CardDescription>
-                          Vídeos que começarão em breve. Fique de olho na contagem regressiva!
-                      </CardDescription>
                   </CardHeader>
                   <CardContent>
                       <ScrollArea className="max-h-64">
-                          <div className="flex flex-col gap-4 pr-4">
+                          <div className="flex flex-col gap-3 pr-4">
                               {scheduledVideos.map(video => (
-                                  <div key={video.id} className="group flex flex-col items-start gap-2 rounded-lg border p-3 text-left">
-                                      <p className="font-semibold text-card-foreground">{video.title}</p>
+                                  <div key={video.id} className="group flex flex-col items-start gap-2 rounded-xl border border-border/40 bg-secondary/10 p-3 text-left">
+                                      <p className="font-semibold text-card-foreground text-sm">{video.title}</p>
                                       
                                       {completedTimers.includes(video.id) ? (
-                                          <Button onClick={() => window.location.reload()} className="w-full mt-2" variant="destructive">
+                                          <Button onClick={() => window.location.reload()} className="w-full mt-2 h-8" variant="destructive">
                                               Atualizar para assistir
                                           </Button>
                                       ) : (
-                                          <>
-                                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                  <Clock className="h-4 w-4" />
-                                                  <span>Começa em:</span>
+                                          <div className="w-full flex justify-between items-center">
+                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                                                  <Clock className="h-3 w-3" />
+                                                  <span>COMEÇA EM:</span>
                                               </div>
                                               <CountdownTimer
                                                   targetDate={video.scheduledAt!}
                                                   onComplete={() => {
                                                       setCompletedTimers(prev => [...prev, video.id]);
                                                   }}
-                                                  className="w-full text-lg font-mono text-foreground"
+                                                  className="text-sm font-bold font-mono text-primary"
                                               />
-                                          </>
+                                          </div>
                                       )}
                                   </div>
                               ))}
@@ -323,19 +325,19 @@ export default function VideoDashboard() {
                   </CardContent>
               </Card>
           )}
-          <Card className="shadow-lg">
-            <CardHeader>
-               <CardTitle className="font-headline">Catálogo de Vídeos</CardTitle>
-               <div className="flex flex-col gap-4 pt-4 sm:flex-row">
+          <Card className="shadow-xl border-none bg-card/50">
+            <CardHeader className="pb-4">
+               <CardTitle className="font-headline text-2xl">Catálogo de Vídeos</CardTitle>
+               <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                   <Input
                     placeholder="Filtrar por título..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-1/2"
+                    className="h-9 text-sm bg-background/50 border-border/40"
                   />
                   <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
-                      <SelectTrigger className="w-full sm:w-1/2">
-                          <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Filtrar por categoria"} />
+                      <SelectTrigger className="h-9 text-sm bg-background/50 border-border/40 w-[120px]">
+                          <SelectValue placeholder="Cat." />
                       </SelectTrigger>
                       <SelectContent>
                           {categories.map(category => (
@@ -346,12 +348,12 @@ export default function VideoDashboard() {
                </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[28rem] -mx-6 px-6">
-                <div className="flex flex-col gap-4 pr-4">
+              <ScrollArea className="h-[30rem] -mx-4 px-4">
+                <div className="flex flex-col gap-3 pr-4">
                   {liveVideo && renderVideoItem(liveVideo)}
                   {pastVideos.length > 0 
                     ? pastVideos.map(video => renderVideoItem(video)) 
-                    : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-4">Nenhum vídeo nesta categoria.</p>)
+                    : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-8">Nenhum vídeo disponível.</p>)
                   }
                 </div>
               </ScrollArea>
@@ -368,28 +370,29 @@ export function DashboardSkeleton() {
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="aspect-video w-full" />
+                <Skeleton className="aspect-video w-full rounded-xl" />
                 <div className="space-y-2 px-2">
-                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-10 w-3/4" />
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-5/6" />
                 </div>
             </div>
             <div className="lg:col-span-1">
-                <Card className="h-full">
+                <Card className="h-full border-none bg-card/50">
                     <CardHeader>
                         <Skeleton className="h-7 w-48" />
                         <div className="flex flex-col gap-4 pt-4 sm:flex-row">
-                          <Skeleton className="h-10 w-full sm:w-1/2" />
-                          <Skeleton className="h-10 w-full sm:w-1/2" />
+                          <Skeleton className="h-9 w-full sm:w-1/2" />
+                          <Skeleton className="h-9 w-full sm:w-1/2" />
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3">
                        {Array.from({ length: 5 }).map((_, i) => (
-                         <div key={i} className="flex items-center gap-4 p-3">
-                            <Skeleton className="h-12 w-12 rounded-md" />
+                         <div key={i} className="flex items-center gap-4 p-3 bg-secondary/5 rounded-xl">
+                            <Skeleton className="h-12 w-12 rounded-lg" />
                             <div className="flex-grow space-y-2">
                                 <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-3 w-1/4" />
                             </div>
                          </div>
                        ))}

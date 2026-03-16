@@ -48,12 +48,12 @@ export function CategoryCounts() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="default" className="text-sm">
+    <div className="flex flex-wrap items-center gap-2 max-w-4xl">
+      <Badge variant="success" className="text-sm px-4 py-1.5 rounded-lg shadow-sm">
           Total de Vídeos: <span className="font-bold ml-1.5">{categoryStats.totalVideos}</span>
       </Badge>
       {Object.entries(categoryStats.counts).sort((a, b) => a[0].localeCompare(b[0])).map(([category, count]) => (
-        <Badge key={category} variant="secondary" className="font-normal">
+        <Badge key={category} variant="secondary" className="font-normal px-4 py-1.5 rounded-lg bg-card border-none shadow-sm text-foreground/80">
           {category}: <span className="font-bold ml-1.5">{count}</span>
         </Badge>
       ))}
