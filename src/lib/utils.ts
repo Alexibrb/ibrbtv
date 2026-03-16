@@ -5,36 +5,49 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function convertToEmbedUrl(youtubeUrl: string): string {
-  if (!youtubeUrl) return '';
-  if (youtubeUrl.includes('/embed/')) {
-    try {
-      const url = new URL(youtubeUrl);
-      url.searchParams.delete('autoplay'); // remove autoplay before saving
-      return url.toString();
-    } catch (e) {
-      return youtubeUrl;
-    }
-  }
+export function convertToEmbedUrl(videoUrl: string): string {
+  if (!videoUrl) return '';
 
   try {
-    const url = new URL(youtubeUrl);
-    let videoId: string | null = null;
+    const url = new URL(videoUrl);
 
-    if (url.hostname === 'youtu.be') {
-      videoId = url.pathname.substring(1);
-    } else if (url.hostname === 'www.youtube.com' || url.hostname === 'youtube.com') {
-      videoId = url.searchParams.get('v');
+    // YouTube
+    if (url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be')) {
+      if (videoUrl.includes('/embed/')) {
+        url.searchParams.delete('autoplay'); 
+        return url.toString();
+      }
+      let videoId: string | null = null;
+      if (url.hostname === 'youtu.be') {
+        videoId = url.pathname.substring(1);
+      } else {
+        videoId = url.searchParams.get('v');
+      }
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : videoUrl;
     }
 
-    if (videoId) {
-      const embedUrl = `https://www.youtube.com/embed/${videoId}`;
-      return embedUrl;
+    // Facebook
+    if (url.hostname.includes('facebook.com')) {
+      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(videoUrl)}&show_text=0&width=560`;
     }
+
+    // Instagram
+    if (url.hostname.includes('instagram.com')) {
+      // Reels or Posts
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      const isReel = pathParts.includes('reel');
+      const isPost = pathParts.includes('p');
+      
+      if (isReel || isPost) {
+        const id = pathParts[pathParts.indexOf(isReel ? 'reel' : 'p') + 1];
+        return `https://www.instagram.com/${isReel ? 'reel' : 'p'}/${id}/embed`;
+      }
+      return videoUrl;
+    }
+
   } catch (e) {
-    console.error('Invalid URL for YouTube conversion', e);
-    return youtubeUrl; // Return original if parsing fails
+    console.error('Invalid URL for conversion', e);
   }
   
-  return youtubeUrl; // Return original if no video id found
+  return videoUrl;
 }

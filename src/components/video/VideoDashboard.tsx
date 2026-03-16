@@ -5,7 +5,7 @@ import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Play, Radio, Clock, Eye } from 'lucide-react';
+import { Play, Radio, Clock, Eye, Share2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import {
@@ -50,7 +50,7 @@ export default function VideoDashboard() {
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
-    }, 60 * 1000); // every minute
+    }, 60 * 1000); 
     return () => clearInterval(timer);
   }, []);
 
@@ -85,32 +85,26 @@ export default function VideoDashboard() {
     if (!video) return null;
     
     let videoToPlay = video;
-    if (!video.isLive && video.youtubeUrl && !video.youtubeUrl.includes('autoplay=1')) {
+    // Autoplay for YouTube only
+    if (video.youtubeUrl.includes('youtube.com') && !video.youtubeUrl.includes('autoplay=1')) {
       try {
         const urlWithAutoplay = new URL(video.youtubeUrl);
         urlWithAutoplay.searchParams.set('autoplay', '1');
         videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
-      } catch (e) {
-        // Ignore invalid URL
-      }
+      } catch (e) {}
     }
     return videoToPlay;
   }, [currentVideoId, allVideos]);
 
   const { scheduledVideos, catalogVideos } = useMemo(() => {
-    if (!allVideos) {
-      return { scheduledVideos: [], catalogVideos: [] };
-    }
+    if (!allVideos) return { scheduledVideos: [], catalogVideos: [] };
 
     const scheduled = allVideos.filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
       .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
       
     const catalog = allVideos.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
     
-    return {
-      scheduledVideos: scheduled,
-      catalogVideos: catalog,
-    };
+    return { scheduledVideos: scheduled, catalogVideos: catalog };
   }, [allVideos, now]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
@@ -124,7 +118,6 @@ export default function VideoDashboard() {
         return v.title.toLowerCase().includes(searchTerm.toLowerCase());
       });
 
-    // Randomize order if "Todos" is selected and no search is active
     if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
       for (let i = filteredCatalogVideos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -152,13 +145,8 @@ export default function VideoDashboard() {
     );
     newlyAvailable.forEach(v => newlyAvailableIds.add(v.id));
 
-    return {
-      liveVideo: live,
-      pastVideos: past,
-      newlyAvailableVideoIds: newlyAvailableIds,
-    };
+    return { liveVideo: live, pastVideos: past, newlyAvailableVideoIds: newlyAvailableIds };
   }, [catalogVideos, selectedCategory, searchTerm, currentVideoId]);
-  
   
   const allVisibleCatalogVideos = useMemo(() => {
     return [
@@ -169,18 +157,13 @@ export default function VideoDashboard() {
 
   useEffect(() => {
     if (videosLoading) return;
-
     const isCurrentVideoVisible = allVisibleCatalogVideos.some(v => v.id === currentVideoId);
-
-    if (currentVideoId && isCurrentVideoVisible) {
-      return;
-    }
+    if (currentVideoId && isCurrentVideoVisible) return;
 
     if (allVisibleCatalogVideos.length > 0) {
       const videoToSelect = allVisibleCatalogVideos.find(v => v.isLive) || allVisibleCatalogVideos[0];
       setCurrentVideoId(videoToSelect.id);
-    } 
-    else {
+    } else {
       setCurrentVideoId(null);
     }
   }, [allVisibleCatalogVideos, videosLoading, currentVideoId]);
@@ -190,6 +173,11 @@ export default function VideoDashboard() {
     return <DashboardSkeleton />;
   }
 
+  const getPlatformIcon = (url: string) => {
+    if (url.includes('facebook.com')) return <span className="text-[10px] font-black">FB</span>;
+    if (url.includes('instagram.com')) return <span className="text-[10px] font-black">IG</span>;
+    return <Play className="h-6 w-6 fill-current" />;
+  };
 
   const renderVideoItem = (video: WithId<Video>) => {
     const isNew = newlyAvailableVideoIds.has(video.id);
@@ -206,32 +194,22 @@ export default function VideoDashboard() {
       >
         <div className={cn(
           'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg shadow-sm',
-          isActive
-            ? 'bg-white/20'
-            : video.isLive
-            ? 'bg-primary/20 text-primary'
-            : 'bg-destructive text-white'
+          isActive ? 'bg-white/20' : video.isLive ? 'bg-primary/20 text-primary' : 'bg-destructive text-white'
         )}>
-          {video.isLive ? (
-            <Radio className="h-6 w-6 animate-pulse" />
-          ) : (
-            <Play className="h-6 w-6 fill-current" />
-          )}
+          {video.isLive ? <Radio className="h-6 w-6 animate-pulse" /> : getPlatformIcon(video.youtubeUrl)}
         </div>
         <div className="min-w-0 flex-grow">
           <p className={cn("font-semibold truncate", isActive ? "text-white" : "text-foreground")}>
-            {isNew && !video.isLive && '✨ '}
-            {video.title}
+            {isNew && !video.isLive && '✨ '}{video.title}
           </p>
            <div className={cn("flex items-center text-[10px] mt-1 gap-1", isActive ? "text-white/80" : "text-muted-foreground")}>
             {video.isLive ? (
-              <Badge variant="destructive" className="animate-pulse h-4 px-1 text-[8px]">
-                AO VIVO
-              </Badge>
+              <Badge variant="destructive" className="animate-pulse h-4 px-1 text-[8px]">AO VIVO</Badge>
             ) : (
                 <div className="flex items-center gap-1">
                     <Eye className="h-3 w-3" />
                     <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                    <span className="ml-1 opacity-50">• {video.youtubeUrl.includes('facebook') ? 'Facebook' : video.youtubeUrl.includes('instagram') ? 'Instagram' : 'YouTube'}</span>
                 </div>
             )}
           </div>
@@ -247,7 +225,7 @@ export default function VideoDashboard() {
           <Card className="overflow-hidden shadow-2xl bg-card/50 border-none">
             {currentVideo ? (
               <>
-                <div className="aspect-video w-full bg-black">
+                <div className="aspect-video w-full bg-black relative">
                   <iframe
                     key={currentVideo.id}
                     width="100%"
@@ -260,11 +238,17 @@ export default function VideoDashboard() {
                   ></iframe>
                 </div>
                 <CardHeader className="space-y-4">
-                  <div className="space-y-2">
-                    <CardTitle className="font-headline text-3xl md:text-4xl leading-tight">{currentVideo.title}</CardTitle>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground/80 font-medium">
-                        <Eye className="h-4 w-4" />
-                        <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-2">
+                      <CardTitle className="font-headline text-3xl md:text-4xl leading-tight">{currentVideo.title}</CardTitle>
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground/80 font-medium">
+                          <Eye className="h-4 w-4" />
+                          <span>{(currentVideo.viewCount ?? 0).toLocaleString('pt-BR')} visualizações</span>
+                          <span className="mx-1">•</span>
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                            {currentVideo.youtubeUrl.includes('facebook') ? 'Facebook' : currentVideo.youtubeUrl.includes('instagram') ? 'Instagram' : 'YouTube'}
+                          </Badge>
+                      </div>
                     </div>
                   </div>
                   <CardDescription className="text-base leading-relaxed text-foreground/70">
@@ -286,36 +270,19 @@ export default function VideoDashboard() {
         <div className="lg:col-span-1 flex flex-col gap-8">
           {scheduledVideos.length > 0 && (
               <Card className="shadow-lg border-none bg-card/50">
-                  <CardHeader>
-                      <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                          <Clock className="h-5 w-5 text-primary" />
-                          Próximas Transmissões
-                      </CardTitle>
-                  </CardHeader>
+                  <CardHeader><CardTitle className="font-headline flex items-center gap-2 text-xl"><Clock className="h-5 w-5 text-primary" /> Próximas Transmissões</CardTitle></CardHeader>
                   <CardContent>
                       <ScrollArea className="max-h-64">
                           <div className="flex flex-col gap-3 pr-4">
                               {scheduledVideos.map(video => (
                                   <div key={video.id} className="group flex flex-col items-start gap-2 rounded-xl border border-border/40 bg-secondary/10 p-3 text-left">
                                       <p className="font-semibold text-card-foreground text-sm">{video.title}</p>
-                                      
                                       {completedTimers.includes(video.id) ? (
-                                          <Button onClick={() => window.location.reload()} className="w-full mt-2 h-8" variant="destructive">
-                                              Atualizar para assistir
-                                          </Button>
+                                          <Button onClick={() => window.location.reload()} className="w-full mt-2 h-8" variant="destructive">Atualizar para assistir</Button>
                                       ) : (
                                           <div className="w-full flex justify-between items-center">
-                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
-                                                  <Clock className="h-3 w-3" />
-                                                  <span>COMEÇA EM:</span>
-                                              </div>
-                                              <CountdownTimer
-                                                  targetDate={video.scheduledAt!}
-                                                  onComplete={() => {
-                                                      setCompletedTimers(prev => [...prev, video.id]);
-                                                  }}
-                                                  className="text-sm font-bold font-mono text-primary"
-                                              />
+                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono"><Clock className="h-3 w-3" /><span>COMEÇA EM:</span></div>
+                                              <CountdownTimer targetDate={video.scheduledAt!} onComplete={() => setCompletedTimers(prev => [...prev, video.id])} className="text-sm font-bold font-mono text-primary" />
                                           </div>
                                       )}
                                   </div>
@@ -329,21 +296,10 @@ export default function VideoDashboard() {
             <CardHeader className="pb-4">
                <CardTitle className="font-headline text-2xl">Catálogo de Vídeos</CardTitle>
                <div className="flex flex-col gap-3 pt-4 sm:flex-row">
-                  <Input
-                    placeholder="Filtrar por título..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-9 text-sm bg-background/50 border-border/40"
-                  />
+                  <Input placeholder="Filtrar por título..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 text-sm bg-background/50 border-border/40" />
                   <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
-                      <SelectTrigger className="h-9 text-sm bg-background/50 border-border/40 w-[120px]">
-                          <SelectValue placeholder="Cat." />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {categories.map(category => (
-                              <SelectItem key={category} value={category}>{category}</SelectItem>
-                          ))}
-                      </SelectContent>
+                      <SelectTrigger className="h-9 text-sm bg-background/50 border-border/40 w-[120px]"><SelectValue placeholder="Cat." /></SelectTrigger>
+                      <SelectContent>{categories.map(category => (<SelectItem key={category} value={category}>{category}</SelectItem>))}</SelectContent>
                   </Select>
                </div>
             </CardHeader>
@@ -351,10 +307,7 @@ export default function VideoDashboard() {
               <ScrollArea className="h-[30rem] -mx-4 px-4">
                 <div className="flex flex-col gap-3 pr-4">
                   {liveVideo && renderVideoItem(liveVideo)}
-                  {pastVideos.length > 0 
-                    ? pastVideos.map(video => renderVideoItem(video)) 
-                    : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-8">Nenhum vídeo disponível.</p>)
-                  }
+                  {pastVideos.length > 0 ? pastVideos.map(video => renderVideoItem(video)) : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-8">Nenhum vídeo disponível.</p>)}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -371,32 +324,12 @@ export function DashboardSkeleton() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-4">
                 <Skeleton className="aspect-video w-full rounded-xl" />
-                <div className="space-y-2 px-2">
-                    <Skeleton className="h-10 w-3/4" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
-                </div>
+                <div className="space-y-2 px-2"><Skeleton className="h-10 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div>
             </div>
             <div className="lg:col-span-1">
                 <Card className="h-full border-none bg-card/50">
-                    <CardHeader>
-                        <Skeleton className="h-7 w-48" />
-                        <div className="flex flex-col gap-4 pt-4 sm:flex-row">
-                          <Skeleton className="h-9 w-full sm:w-1/2" />
-                          <Skeleton className="h-9 w-full sm:w-1/2" />
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                       {Array.from({ length: 5 }).map((_, i) => (
-                         <div key={i} className="flex items-center gap-4 p-3 bg-secondary/5 rounded-xl">
-                            <Skeleton className="h-12 w-12 rounded-lg" />
-                            <div className="flex-grow space-y-2">
-                                <Skeleton className="h-4 w-full" />
-                                <Skeleton className="h-3 w-1/4" />
-                            </div>
-                         </div>
-                       ))}
-                    </CardContent>
+                    <CardHeader><Skeleton className="h-7 w-48" /><div className="flex flex-col gap-4 pt-4 sm:flex-row"><Skeleton className="h-9 w-full sm:w-1/2" /><Skeleton className="h-9 w-full sm:w-1/2" /></div></CardHeader>
+                    <CardContent className="space-y-3">{Array.from({ length: 5 }).map((_, i) => (<div key={i} className="flex items-center gap-4 p-3 bg-secondary/5 rounded-xl"><Skeleton className="h-12 w-12 rounded-lg" /><div className="flex-grow space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-3 w-1/4" /></div></div>))}</CardContent>
                 </Card>
             </div>
         </div>
