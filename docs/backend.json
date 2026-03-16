@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Video": {
@@ -38,6 +39,10 @@
         "viewCount": {
           "type": "number",
           "description": "The number of times the video has been viewed."
+        },
+        "order": {
+          "type": "number",
+          "description": "The display order of the video."
         }
       },
       "required": ["youtubeUrl", "title", "category", "createdAt"]

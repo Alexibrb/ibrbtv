@@ -1,3 +1,4 @@
+
 export type Video = {
   id: string;
   youtubeUrl: string;
@@ -8,4 +9,5 @@ export type Video = {
   scheduledAt?: string;
   createdAt: string;
   viewCount?: number;
+  order?: number;
 };

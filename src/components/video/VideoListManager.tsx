@@ -1,18 +1,20 @@
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Video } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, Clock, Eye } from 'lucide-react';
+import { Pencil, Trash2, Clock, Eye, GripVertical } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import EditVideoDialog from './EditVideoDialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '../ui/badge';
-import { useFirebase, useCollection, WithId } from '@/firebase';
+import { useFirebase, useCollection, WithId, setDocumentNonBlocking } from '@/firebase';
 import { deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 
 const ALL_CATEGORIES = 'Todas as Categorias';
@@ -24,10 +26,17 @@ export default function VideoListManager() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES);
+  const [orderedVideos, setOrderedVideos] = useState<WithId<Video>[]>([]);
 
-  const { data: videos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
-  
+  // Buscamos ordenado por 'order' (ascendente)
+  const { data: videos, loading: videosLoading } = useCollection<Video>('videos', orderBy('order', 'asc'));
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
+
+  useEffect(() => {
+    if (videos) {
+      setOrderedVideos(videos);
+    }
+  }, [videos]);
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(categoriesData?.map(c => c.name) || [])].sort();
@@ -61,9 +70,32 @@ export default function VideoListManager() {
     }
   };
 
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(orderedVideos);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setOrderedVideos(items);
+
+    // Atualiza a ordem no Firestore para todos os itens afetados ou simplesmente re-indexa
+    // Para simplificar e garantir ordem perfeita, re-indexamos com gaps de 10
+    items.forEach((video, index) => {
+      const newOrder = index * 10;
+      if (video.order !== newOrder) {
+        setDocumentNonBlocking(firestore, `videos/${video.id}`, { order: newOrder });
+      }
+    });
+
+    toast({
+      title: 'Ordem atualizada',
+      description: 'A nova sequência dos vídeos foi salva.',
+    });
+  };
+
   const filteredVideos = useMemo(() => {
-    if (!videos) return [];
-    return videos
+    return orderedVideos
       .filter(video => {
         if (selectedCategory === ALL_CATEGORIES) return true;
         return video.category === selectedCategory;
@@ -72,14 +104,21 @@ export default function VideoListManager() {
         if (!searchTerm) return true;
         return video.title.toLowerCase().includes(searchTerm.toLowerCase());
       });
-  }, [videos, selectedCategory, searchTerm]);
+  }, [orderedVideos, selectedCategory, searchTerm]);
+
+  // Desabilita drag and drop se houver filtros ativos para evitar confusão na ordem absoluta
+  const isFiltering = searchTerm !== '' || selectedCategory !== ALL_CATEGORIES;
 
   return (
     <>
       <Card className="shadow-lg mt-8">
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Gerenciar Vídeos</CardTitle>
-          <CardDescription>Visualize, edite e remova vídeos cadastrados. Use os filtros para encontrar vídeos específicos.</CardDescription>
+          <CardDescription>
+            {isFiltering 
+              ? 'Filtros ativos. Desabilite-os para reordenar os vídeos livremente.' 
+              : 'Arraste os vídeos pelo ícone lateral para mudar a ordem de exibição.'}
+          </CardDescription>
           <div className="flex flex-col gap-4 pt-4 sm:flex-row">
             <Input
               placeholder="Filtrar por título..."
@@ -103,52 +142,86 @@ export default function VideoListManager() {
           {videosLoading ? (
             <p>Carregando vídeos...</p>
           ) : filteredVideos.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nenhum vídeo encontrado com os filtros atuais.</p>
+            <p className="text-muted-foreground text-center py-8">Nenhum vídeo encontrado.</p>
           ) : (
-            <ScrollArea className="h-[400px]">
-              <ul className="space-y-4 pr-4">
-                {filteredVideos.map((video) => (
-                  <li key={video.id} className="grid grid-cols-[1fr_auto] items-center gap-4 p-3 rounded-lg border">
-                    <div className="min-w-0">
-                       <p className="font-semibold">{video.title}</p>
-                       <div className="flex items-center gap-x-3 text-sm text-muted-foreground flex-wrap">
-                         <span>{video.category}</span>
-                         <span className="text-gray-400">&middot;</span>
-                         <div className="flex items-center gap-1.5">
-                           <Eye className="h-4 w-4" />
-                           <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
-                         </div>
-                         <span className="text-gray-400">&middot;</span>
-                         <span>{video.isLive ? 'AO VIVO' : 'Replay'}</span>
-                       </div>
-                       {video.scheduledAt && (
-                         <Badge variant="outline" className="mt-2 text-xs">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Agendado: {new Date(video.scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                         </Badge>
-                       )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenEditDialog(video)}
-                        aria-label={`Editar vídeo ${video.title}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(video.id)}
-                        aria-label={`Remover vídeo ${video.title}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            <ScrollArea className="h-[500px]">
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="videos-list" isDropDisabled={isFiltering}>
+                  {(provided) => (
+                    <ul 
+                      {...provided.droppableProps} 
+                      ref={provided.innerRef} 
+                      className="space-y-4 pr-4"
+                    >
+                      {filteredVideos.map((video, index) => (
+                        <Draggable 
+                          key={video.id} 
+                          draggableId={video.id} 
+                          index={index}
+                          isDragDisabled={isFiltering}
+                        >
+                          {(provided, snapshot) => (
+                            <li
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn(
+                                "grid grid-cols-[auto_1fr_auto] items-center gap-4 p-3 rounded-lg border bg-card transition-shadow",
+                                snapshot.isDragging && "shadow-2xl border-primary ring-2 ring-primary/20 z-50 bg-accent/10"
+                              )}
+                            >
+                              <div 
+                                {...provided.dragHandleProps} 
+                                className={cn(
+                                  "p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-primary transition-colors",
+                                  isFiltering && "opacity-20 cursor-not-allowed"
+                                )}
+                              >
+                                <GripVertical className="h-5 w-5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold truncate">{video.title}</p>
+                                <div className="flex items-center gap-x-3 text-sm text-muted-foreground flex-wrap">
+                                  <span>{video.category}</span>
+                                  <span className="text-gray-400">&middot;</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <Eye className="h-4 w-4" />
+                                    <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                                  </div>
+                                </div>
+                                {video.scheduledAt && (
+                                  <Badge variant="outline" className="mt-2 text-xs">
+                                     <Clock className="h-3 w-3 mr-1" />
+                                     Agendado: {new Date(video.scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEditDialog(video)}
+                                  aria-label={`Editar vídeo ${video.title}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(video.id)}
+                                  aria-label={`Remover vídeo ${video.title}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </li>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </ul>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </ScrollArea>
           )}
         </CardContent>

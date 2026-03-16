@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -87,13 +88,16 @@ export default function AddVideoForm() {
       processedUrl.current = state.videoUrl;
 
       const newVideo: Omit<Video, 'id' | 'createdAt'> = {
-        youtubeUrl: state.videoUrl, // Mantemos o nome da chave por compatibilidade com o Firestore
+        youtubeUrl: state.videoUrl, 
         title: state.title,
         summary: settings?.defaultSummary || '',
         isLive: false,
         category: state.category,
         scheduledAt: state.scheduledAt || '',
         viewCount: 0,
+        // Usamos timestamp negativo para que novos vídeos apareçam no topo por padrão
+        // na ordenação ascendente por 'order'
+        order: Date.now() * -1,
       };
 
       addDocumentNonBlocking(firestore, 'videos', newVideo);

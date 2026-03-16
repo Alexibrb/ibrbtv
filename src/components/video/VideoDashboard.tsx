@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -38,7 +39,8 @@ export default function VideoDashboard() {
   const playerRef = useRef<HTMLDivElement>(null);
 
 
-  const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('createdAt', 'desc'));
+  // Buscamos ordenado por 'order' (ascendente) para respeitar a escolha do admin
+  const { data: allVideos, loading: videosLoading } = useCollection<Video>('videos', orderBy('order', 'asc'));
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 
   const categories = useMemo(() => {
@@ -85,7 +87,7 @@ export default function VideoDashboard() {
     if (!video) return null;
     
     let videoToPlay = video;
-    // Autoplay for YouTube only
+    // Autoplay apenas para YouTube
     if (video.youtubeUrl.includes('youtube.com') && !video.youtubeUrl.includes('autoplay=1')) {
       try {
         const urlWithAutoplay = new URL(video.youtubeUrl);
@@ -118,6 +120,8 @@ export default function VideoDashboard() {
         return v.title.toLowerCase().includes(searchTerm.toLowerCase());
       });
 
+    // Se a categoria for "Todos" e não houver busca, aplicamos a lógica aleatória
+    // que você solicitou anteriormente, mas mantendo o vídeo atual no topo
     if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
       for (let i = filteredCatalogVideos.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -129,6 +133,7 @@ export default function VideoDashboard() {
     let past = filteredCatalogVideos.filter(v => !v.isLive);
     const newlyAvailableIds = new Set<string>();
 
+    // Garante que o vídeo atual esteja no topo da lista se for selecionado
     if (currentVideoId) {
       const selectedVideoIndex = past.findIndex(v => v.id === currentVideoId);
       if (selectedVideoIndex > 0) {
