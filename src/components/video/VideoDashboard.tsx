@@ -79,7 +79,7 @@ export default function VideoDashboard() {
   
   const allVideosSorted = useMemo(() => {
     if (!fetchedVideos) return null;
-    return [...fetchedVideos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    return [...fetchedVideos];
   }, [fetchedVideos]);
 
   const { scheduledVideos, catalogVideos } = useMemo(() => {
@@ -93,31 +93,58 @@ export default function VideoDashboard() {
     return { scheduledVideos: scheduled, catalogVideos: catalog };
   }, [allVideosSorted, now]);
 
-  // Lógica de embaralhamento estável para o usuário
+  // Lógica de organização: Vídeos de hoje no topo, o resto aleatório
   const shuffledCatalog = useMemo(() => {
-    let baseList = [...catalogVideos];
-    
-    // Só embaralhamos se for a categoria "Todos" e não houver busca
-    if (selectedCategory === ALL_CATEGORIES && !searchTerm) {
-      for (let i = baseList.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [baseList[i], baseList[j]] = [baseList[j], baseList[i]];
-      }
-    } else {
-      // Se houver categoria ou busca, apenas filtramos
-      baseList = baseList.filter(v => {
-        const matchCategory = selectedCategory === ALL_CATEGORIES || v.category === selectedCategory;
-        const matchSearch = !searchTerm || v.title.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchCategory && matchSearch;
-      });
+    let filtered = catalogVideos.filter(v => {
+      const matchCategory = selectedCategory === ALL_CATEGORIES || v.category === selectedCategory;
+      const matchSearch = !searchTerm || v.title.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchCategory && matchSearch;
+    });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Separar vídeos de hoje dos antigos
+    const todayVideos = filtered.filter(v => {
+      // Usamos createdAt ou o dia do agendamento se for hoje
+      const videoDate = v.createdAt ? new Date(v.createdAt) : v.scheduledAt ? new Date(v.scheduledAt) : null;
+      return videoDate && videoDate.getTime() >= todayStart.getTime();
+    }).sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA; // Recentes primeiro
+    });
+
+    const olderVideos = filtered.filter(v => {
+      const videoDate = v.createdAt ? new Date(v.createdAt) : v.scheduledAt ? new Date(v.scheduledAt) : null;
+      return !videoDate || videoDate.getTime() < todayStart.getTime();
+    });
+
+    // Só embaralhamos os vídeos antigos se estiver na categoria "Todos" ou filtros
+    // mas a regra é que os antigos SÃO aleatórios
+    for (let i = olderVideos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [olderVideos[i], olderVideos[j]] = [olderVideos[j], olderVideos[i]];
     }
-    return baseList;
+
+    return [...todayVideos, ...olderVideos];
   }, [catalogVideos, selectedCategory, searchTerm]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
     const live = shuffledCatalog.find(v => v.isLive) || null;
-    let past = shuffledCatalog.filter(v => !v.isLive);
+    let past = [...shuffledCatalog.filter(v => !v.isLive)];
     const newlyAvailableIds = new Set<string>();
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Marcar vídeos de hoje
+    past.forEach(v => {
+      const videoDate = v.createdAt ? new Date(v.createdAt) : v.scheduledAt ? new Date(v.scheduledAt) : null;
+      if (videoDate && videoDate.getTime() >= todayStart.getTime()) {
+        newlyAvailableIds.add(v.id);
+      }
+    });
 
     // Garante que o vídeo atual esteja no topo da lista se for selecionado
     if (currentVideoId) {
@@ -128,14 +155,6 @@ export default function VideoDashboard() {
       }
     }
     
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const newlyAvailable = past.filter(v =>
-      v.scheduledAt && new Date(v.scheduledAt).getTime() >= todayStart.getTime()
-    );
-    newlyAvailable.forEach(v => newlyAvailableIds.add(v.id));
-
     return { liveVideo: live, pastVideos: past, newlyAvailableVideoIds: newlyAvailableIds };
   }, [shuffledCatalog, currentVideoId]);
   
@@ -216,6 +235,7 @@ export default function VideoDashboard() {
                 <div className="flex items-center gap-1">
                     <Eye className="h-3 w-3" />
                     <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                    {isNew && <span className="ml-1 text-primary-foreground bg-primary px-1 rounded-[2px] font-bold">NOVO</span>}
                     <span className="ml-1 opacity-50">• {video.youtubeUrl.includes('facebook') ? 'Facebook' : video.youtubeUrl.includes('instagram') ? 'Instagram' : 'YouTube'}</span>
                 </div>
             )}
