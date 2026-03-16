@@ -60,8 +60,8 @@ export function CategoryCounts() {
       <div className="flex items-center justify-between bg-muted/20 p-2 rounded-xl border border-border/30">
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-primary text-primary-foreground px-3 py-1.5 rounded-lg shadow-sm">
-            <span className="text-[10px] font-bold uppercase mr-2 opacity-90 whitespace-nowrap">Total</span>
-            <span className="text-base font-black">{categoryStats.totalVideos}</span>
+            <span className="text-base font-black mr-2">{categoryStats.totalVideos}</span>
+            <span className="text-[10px] font-bold uppercase opacity-90 whitespace-nowrap">Vídeos</span>
           </div>
         </div>
         <CollapsibleTrigger asChild>
@@ -84,7 +84,7 @@ export function CategoryCounts() {
                 <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center w-full mb-1 px-1 leading-tight line-clamp-2">
                   {category}
                 </span>
-                <span className="text-sm font-black text-foreground">
+                <span className="text-xs font-black text-foreground">
                   {count}
                 </span>
               </div>
