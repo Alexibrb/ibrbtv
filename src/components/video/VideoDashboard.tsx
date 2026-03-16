@@ -18,7 +18,7 @@ import {
 import { Input } from '../ui/input';
 import CountdownTimer from './CountdownTimer';
 import { useFirebase, useCollection, WithId } from '@/firebase';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, Timestamp } from 'firebase/firestore';
 import { Button } from '../ui/button';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -27,6 +27,18 @@ import GoToPlayerButton from './GoToPlayerButton';
 
 const ALL_CATEGORIES = 'Todos';
 type Category = { name: string };
+
+// Função auxiliar para converter formatos de data do Firebase/JS de forma segura
+const getSafeDate = (dateVal: any): Date | null => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Timestamp) return dateVal.toDate();
+  if (dateVal instanceof Date) return dateVal;
+  if (typeof dateVal === 'string' || typeof dateVal === 'number') {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
 
 export default function VideoDashboard() {
   const { firestore } = useFirebase();
@@ -85,15 +97,23 @@ export default function VideoDashboard() {
   const { scheduledVideos, catalogVideos } = useMemo(() => {
     if (!allVideosSorted) return { scheduledVideos: [], catalogVideos: [] };
 
-    const scheduled = allVideosSorted.filter(v => v.scheduledAt && new Date(v.scheduledAt) > now)
-      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+    const scheduled = allVideosSorted.filter(v => {
+      const date = getSafeDate(v.scheduledAt);
+      return date && date > now;
+    }).sort((a, b) => {
+      const dateA = getSafeDate(a.scheduledAt)?.getTime() || 0;
+      const dateB = getSafeDate(b.scheduledAt)?.getTime() || 0;
+      return dateA - dateB;
+    });
       
-    const catalog = allVideosSorted.filter(v => !v.scheduledAt || new Date(v.scheduledAt) <= now);
+    const catalog = allVideosSorted.filter(v => {
+      const date = getSafeDate(v.scheduledAt);
+      return !date || date <= now;
+    });
     
     return { scheduledVideos: scheduled, catalogVideos: catalog };
   }, [allVideosSorted, now]);
 
-  // Lógica de organização: Vídeos de hoje no topo, o resto aleatório
   const shuffledCatalog = useMemo(() => {
     let filtered = catalogVideos.filter(v => {
       const matchCategory = selectedCategory === ALL_CATEGORIES || v.category === selectedCategory;
@@ -104,30 +124,28 @@ export default function VideoDashboard() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // Separar vídeos de hoje dos antigos
     const todayVideos = filtered.filter(v => {
-      // Usamos createdAt ou o dia do agendamento se for hoje
-      const videoDate = v.createdAt ? new Date(v.createdAt) : v.scheduledAt ? new Date(v.scheduledAt) : null;
+      const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
       return videoDate && videoDate.getTime() >= todayStart.getTime();
     }).sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA; // Recentes primeiro
+        const dateA = getSafeDate(a.createdAt)?.getTime() || 0;
+        const dateB = getSafeDate(b.createdAt)?.getTime() || 0;
+        return dateB - dateA;
     });
 
     const olderVideos = filtered.filter(v => {
-      const videoDate = v.createdAt ? new Date(v.createdAt) : v.scheduledAt ? new Date(v.scheduledAt) : null;
+      const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
       return !videoDate || videoDate.getTime() < todayStart.getTime();
     });
 
-    // Só embaralhamos os vídeos antigos se estiver na categoria "Todos" ou filtros
-    // mas a regra é que os antigos SÃO aleatórios
-    for (let i = olderVideos.length - 1; i > 0; i--) {
+    // Embaralha apenas os vídeos antigos
+    const shuffledOld = [...olderVideos];
+    for (let i = shuffledOld.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [olderVideos[i], olderVideos[j]] = [olderVideos[j], olderVideos[i]];
+      [shuffledOld[i], shuffledOld[j]] = [shuffledOld[j], shuffledOld[i]];
     }
 
-    return [...todayVideos, ...olderVideos];
+    return [...todayVideos, ...shuffledOld];
   }, [catalogVideos, selectedCategory, searchTerm]);
 
   const { liveVideo, pastVideos, newlyAvailableVideoIds } = useMemo(() => {
@@ -138,15 +156,13 @@ export default function VideoDashboard() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // Marcar vídeos de hoje
     past.forEach(v => {
-      const videoDate = v.createdAt ? new Date(v.createdAt) : v.scheduledAt ? new Date(v.scheduledAt) : null;
+      const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
       if (videoDate && videoDate.getTime() >= todayStart.getTime()) {
         newlyAvailableIds.add(v.id);
       }
     });
 
-    // Garante que o vídeo atual esteja no topo da lista se for selecionado
     if (currentVideoId) {
       const selectedVideoIndex = past.findIndex(v => v.id === currentVideoId);
       if (selectedVideoIndex > 0) {
