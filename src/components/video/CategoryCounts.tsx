@@ -46,21 +46,24 @@ export function CategoryCounts() {
   }
 
   return (
-    <div className="w-full flex items-center gap-2 bg-muted/20 p-1 rounded-xl border border-border/30">
+    <div className="w-full flex items-center gap-2 bg-muted/20 p-1 rounded-xl border border-border/30 overflow-hidden">
       <div className="shrink-0 flex items-center bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-sm">
-          <span className="text-[9px] font-bold uppercase mr-1.5 opacity-80">Total</span>
+          <span className="text-[9px] font-bold uppercase mr-1.5 opacity-80 whitespace-nowrap">Total</span>
           <span className="text-xs font-black">{categoryStats.totalVideos}</span>
       </div>
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-1 scroll-smooth">
-        {Object.entries(categoryStats.counts)
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .map(([category, count]) => (
-            <div key={category} className="flex items-center gap-1.5 shrink-0 px-2 py-0.5 rounded-md bg-background/40 border border-border/10">
-              <span className="text-[9px] font-medium text-muted-foreground whitespace-nowrap uppercase tracking-tight">{category}</span>
-              <span className="text-[10px] font-bold text-foreground/70">{count}</span>
-            </div>
-          ))
-        }
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-1 scroll-smooth">
+          {Object.entries(categoryStats.counts)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([category, count]) => (
+              <div key={category} className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-md bg-background/40 border border-border/10">
+                <span className="text-[9px] font-medium text-muted-foreground whitespace-nowrap uppercase tracking-tight">{category}</span>
+                <span className="text-[10px] font-bold text-foreground/70">{count}</span>
+              </div>
+            ))
+          }
+        </div>
       </div>
     </div>
   );
