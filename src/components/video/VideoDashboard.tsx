@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -29,24 +28,14 @@ import GoToPlayerButton from './GoToPlayerButton';
 const ALL_CATEGORIES = 'Todos';
 type Category = { name: string };
 
-// Função auxiliar robusta para converter formatos de data do Firebase/JS
 const getSafeDate = (dateVal: any): Date | null => {
   if (!dateVal) return null;
-  
-  // Verifica se é um Timestamp do Firebase (pela presença de toDate())
-  if (typeof dateVal.toDate === 'function') {
-    return dateVal.toDate();
-  }
-  
-  if (dateVal instanceof Date) {
-    return dateVal;
-  }
-  
+  if (typeof dateVal.toDate === 'function') return dateVal.toDate();
+  if (dateVal instanceof Date) return dateVal;
   if (typeof dateVal === 'string' || typeof dateVal === 'number') {
     const d = new Date(dateVal);
     return isNaN(d.getTime()) ? null : d;
   }
-  
   return null;
 };
 
@@ -68,9 +57,7 @@ export default function VideoDashboard() {
   }, [categoriesData]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(new Date());
-    }, 60 * 1000); 
+    const timer = setInterval(() => setNow(new Date()), 60 * 1000); 
     return () => clearInterval(timer);
   }, []);
 
@@ -85,42 +72,29 @@ export default function VideoDashboard() {
         playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
     }
-
     const videoRef = doc(firestore, 'videos', video.id);
     updateDoc(videoRef, { viewCount: increment(1) }).catch(err => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: videoRef.path,
             operation: 'update',
             requestResourceData: { viewCount: 'increment(1)' },
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
     });
-    
     setCurrentVideoId(video.id);
   };
   
-  const allVideosSorted = useMemo(() => {
-    if (!fetchedVideos) return null;
-    return [...fetchedVideos];
-  }, [fetchedVideos]);
+  const allVideosSorted = useMemo(() => fetchedVideos ? [...fetchedVideos] : null, [fetchedVideos]);
 
   const { scheduledVideos, catalogVideos } = useMemo(() => {
     if (!allVideosSorted) return { scheduledVideos: [], catalogVideos: [] };
-
     const scheduled = allVideosSorted.filter(v => {
       const date = getSafeDate(v.scheduledAt);
       return date && date > now;
-    }).sort((a, b) => {
-      const dateA = getSafeDate(a.scheduledAt)?.getTime() || 0;
-      const dateB = getSafeDate(b.scheduledAt)?.getTime() || 0;
-      return dateA - dateB;
-    });
-      
+    }).sort((a, b) => (getSafeDate(a.scheduledAt)?.getTime() || 0) - (getSafeDate(b.scheduledAt)?.getTime() || 0));
     const catalog = allVideosSorted.filter(v => {
       const date = getSafeDate(v.scheduledAt);
       return !date || date <= now;
     });
-    
     return { scheduledVideos: scheduled, catalogVideos: catalog };
   }, [allVideosSorted, now]);
 
@@ -137,18 +111,13 @@ export default function VideoDashboard() {
     const todayVideos = filtered.filter(v => {
       const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
       return videoDate && videoDate.getTime() >= todayStart.getTime();
-    }).sort((a, b) => {
-        const dateA = getSafeDate(a.createdAt)?.getTime() || 0;
-        const dateB = getSafeDate(b.createdAt)?.getTime() || 0;
-        return dateB - dateA;
-    });
+    }).sort((a, b) => (getSafeDate(b.createdAt)?.getTime() || 0) - (getSafeDate(a.createdAt)?.getTime() || 0));
 
     const olderVideos = filtered.filter(v => {
       const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
       return !videoDate || videoDate.getTime() < todayStart.getTime();
     });
 
-    // Embaralha apenas os vídeos antigos para manter o catálogo dinâmico
     const shuffledOld = [...olderVideos];
     for (let i = shuffledOld.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -162,26 +131,21 @@ export default function VideoDashboard() {
     const live = processedCatalog.find(v => v.isLive) || null;
     let past = [...processedCatalog.filter(v => !v.isLive)];
     const newlyAvailableIds = new Set<string>();
-
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
     processedCatalog.forEach(v => {
       const videoDate = getSafeDate(v.createdAt) || getSafeDate(v.scheduledAt);
-      if (videoDate && videoDate.getTime() >= todayStart.getTime()) {
-        newlyAvailableIds.add(v.id);
-      }
+      if (videoDate && videoDate.getTime() >= todayStart.getTime()) newlyAvailableIds.add(v.id);
     });
 
-    // Garante que o vídeo selecionado (se houver) apareça no topo para fácil acesso
     if (currentVideoId) {
-      const selectedVideoIndex = past.findIndex(v => v.id === currentVideoId);
-      if (selectedVideoIndex > 0) {
-        const [selectedVideo] = past.splice(selectedVideoIndex, 1);
-        past.unshift(selectedVideo);
+      const index = past.findIndex(v => v.id === currentVideoId);
+      if (index > 0) {
+        const [selected] = past.splice(index, 1);
+        past.unshift(selected);
       }
     }
-    
     return { liveVideo: live, pastVideos: past, newlyAvailableVideoIds: newlyAvailableIds };
   }, [processedCatalog, currentVideoId]);
   
@@ -189,90 +153,32 @@ export default function VideoDashboard() {
     if (!currentVideoId || !allVideosSorted) return null;
     const video = allVideosSorted.find(v => v.id === currentVideoId);
     if (!video) return null;
-    
-    let videoToPlay = video;
     if (video.youtubeUrl.includes('youtube.com') && !video.youtubeUrl.includes('autoplay=1')) {
       try {
-        const urlWithAutoplay = new URL(video.youtubeUrl);
-        urlWithAutoplay.searchParams.set('autoplay', '1');
-        videoToPlay = { ...video, youtubeUrl: urlWithAutoplay.toString() };
+        const url = new URL(video.youtubeUrl);
+        url.searchParams.set('autoplay', '1');
+        return { ...video, youtubeUrl: url.toString() };
       } catch (e) {}
     }
-    return videoToPlay;
+    return video;
   }, [currentVideoId, allVideosSorted]);
 
   const allVisibleCatalogVideos = useMemo(() => {
-    const combined = [
-      ...(liveVideo ? [liveVideo] : []),
-      ...pastVideos,
-    ];
-    // Remove duplicatas mantendo a ordem
+    const combined = [...(liveVideo ? [liveVideo] : []), ...pastVideos];
     return combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
   }, [liveVideo, pastVideos]);
 
   useEffect(() => {
     if (videosLoading) return;
-    const isCurrentVideoVisible = allVisibleCatalogVideos.some(v => v.id === currentVideoId);
-    if (currentVideoId && isCurrentVideoVisible) return;
-
+    if (currentVideoId && allVisibleCatalogVideos.some(v => v.id === currentVideoId)) return;
     if (allVisibleCatalogVideos.length > 0) {
-      const videoToSelect = allVisibleCatalogVideos.find(v => v.isLive) || allVisibleCatalogVideos[0];
-      setCurrentVideoId(videoToSelect.id);
+      setCurrentVideoId((allVisibleCatalogVideos.find(v => v.isLive) || allVisibleCatalogVideos[0]).id);
     } else {
       setCurrentVideoId(null);
     }
   }, [allVisibleCatalogVideos, videosLoading, currentVideoId]);
 
-
-  if (videosLoading || categoriesLoading) {
-    return <DashboardSkeleton />;
-  }
-
-  const getPlatformIcon = (url: string) => {
-    if (url.includes('facebook.com')) return <span className="text-[10px] font-black">FB</span>;
-    if (url.includes('instagram.com')) return <span className="text-[10px] font-black">IG</span>;
-    return <Play className="h-6 w-6 fill-current" />;
-  };
-
-  const renderVideoItem = (video: WithId<Video>) => {
-    const isNew = newlyAvailableVideoIds.has(video.id);
-    const isActive = currentVideoId === video.id;
-    return (
-      <button
-        key={video.id}
-        onClick={() => handleClickVideo(video)}
-        className={cn(
-          'group flex items-center gap-4 rounded-xl p-3 text-left transition-all hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring border border-transparent',
-          isActive ? 'bg-success text-success-foreground' : 'bg-secondary/20 border-border/40'
-        )}
-        aria-current={isActive}
-      >
-        <div className={cn(
-          'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg shadow-sm',
-          isActive ? 'bg-white/20' : video.isLive ? 'bg-primary/20 text-primary' : 'bg-destructive text-white'
-        )}>
-          {video.isLive ? <Radio className="h-6 w-6 animate-pulse" /> : getPlatformIcon(video.youtubeUrl)}
-        </div>
-        <div className="min-w-0 flex-grow">
-          <p className={cn("font-semibold truncate", isActive ? "text-white" : "text-foreground")}>
-            {isNew && !video.isLive && '✨ '}{video.title}
-          </p>
-           <div className={cn("flex items-center text-[10px] mt-1 gap-1", isActive ? "text-white/80" : "text-muted-foreground")}>
-            {video.isLive ? (
-              <Badge variant="destructive" className="animate-pulse h-4 px-1 text-[8px]">AO VIVO</Badge>
-            ) : (
-                <div className="flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
-                    {isNew && <span className="ml-1 text-primary-foreground bg-primary px-1 rounded-[2px] font-bold">NOVO</span>}
-                    <span className="ml-1 opacity-50">• {video.youtubeUrl.includes('facebook') ? 'Facebook' : video.youtubeUrl.includes('instagram') ? 'Instagram' : 'YouTube'}</span>
-                </div>
-            )}
-          </div>
-        </div>
-      </button>
-    );
-  };
+  if (videosLoading || categoriesLoading) return <DashboardSkeleton />;
 
   const isVertical = currentVideo?.youtubeUrl.includes('facebook.com') || currentVideo?.youtubeUrl.includes('instagram.com');
 
@@ -321,7 +227,6 @@ export default function VideoDashboard() {
                <CardContent className="flex h-[60vh] items-center justify-center">
                   <div className="text-center">
                       <h2 className="font-headline text-2xl">Nenhum vídeo encontrado</h2>
-                      <p className="text-muted-foreground mt-2">Tente selecionar outra categoria ou adicione um vídeo na área de administração.</p>
                   </div>
                </CardContent>
             )}
@@ -336,16 +241,12 @@ export default function VideoDashboard() {
                       <ScrollArea className="max-h-64">
                           <div className="flex flex-col gap-3 pr-4">
                               {scheduledVideos.map(video => (
-                                  <div key={video.id} className="group flex flex-col items-start gap-2 rounded-xl border border-border/40 bg-secondary/10 p-3 text-left">
-                                      <p className="font-semibold text-card-foreground text-sm">{video.title}</p>
-                                      {completedTimers.includes(video.id) ? (
-                                          <Button onClick={() => window.location.reload()} className="w-full mt-2 h-8" variant="destructive">Atualizar para assistir</Button>
-                                      ) : (
-                                          <div className="w-full flex justify-between items-center">
-                                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono"><Clock className="h-3 w-3" /><span>COMEÇA EM:</span></div>
-                                              <CountdownTimer targetDate={video.scheduledAt!} onComplete={() => setCompletedTimers(prev => [...prev, video.id])} className="text-sm font-bold font-mono text-primary" />
-                                          </div>
-                                      )}
+                                  <div key={video.id} className="group flex flex-col items-start gap-2 rounded-xl border border-border/40 bg-secondary/10 p-3">
+                                      <p className="font-semibold text-sm">{video.title}</p>
+                                      <div className="w-full flex justify-between items-center mt-1">
+                                          <span className="text-[10px] text-muted-foreground font-mono uppercase">Começa em:</span>
+                                          <CountdownTimer targetDate={video.scheduledAt!} onComplete={() => setCompletedTimers(prev => [...prev, video.id])} className="text-sm font-bold font-mono text-primary" />
+                                      </div>
                                   </div>
                               ))}
                           </div>
@@ -355,20 +256,40 @@ export default function VideoDashboard() {
           )}
           <Card className="shadow-xl border-none bg-card/50">
             <CardHeader className="pb-4">
-               <CardTitle className="font-headline text-2xl">Catálogo de Vídeos</CardTitle>
+               <CardTitle className="font-headline text-2xl">Catálogo</CardTitle>
                <div className="flex flex-col gap-3 pt-4 sm:flex-row">
-                  <Input placeholder="Filtrar por título..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 text-sm bg-background/50 border-border/40" />
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
-                      <SelectTrigger className="h-9 text-sm bg-background/50 border-border/40 w-[120px]"><SelectValue placeholder="Cat." /></SelectTrigger>
-                      <SelectContent>{categories.map(category => (<SelectItem key={category} value={category}>{category}</SelectItem>))}</SelectContent>
+                  <Input placeholder="Filtrar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9 text-sm bg-background/50" />
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="h-9 text-sm w-[120px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                </div>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[30rem] -mx-4 px-4">
                 <div className="flex flex-col gap-3 pr-4">
-                  {liveVideo && renderVideoItem(liveVideo)}
-                  {pastVideos.length > 0 ? pastVideos.map(video => renderVideoItem(video)) : (liveVideo ? null : <p className="text-sm text-muted-foreground text-center pt-8">Nenhum vídeo disponível.</p>)}
+                  {allVisibleCatalogVideos.map(video => {
+                    const isActive = currentVideoId === video.id;
+                    const isNew = newlyAvailableVideoIds.has(video.id);
+                    return (
+                      <button key={video.id} onClick={() => handleClickVideo(video)} className={cn(
+                        'flex items-center gap-4 rounded-xl p-3 text-left transition-all border border-transparent',
+                        isActive ? 'bg-success text-success-foreground' : 'bg-secondary/20 border-border/40 hover:bg-accent/50'
+                      )}>
+                        <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', isActive ? 'bg-white/20' : 'bg-destructive text-white')}>
+                          {video.isLive ? <Radio className="h-6 w-6 animate-pulse" /> : <Play className="h-6 w-6 fill-current" />}
+                        </div>
+                        <div className="min-w-0 flex-grow">
+                          <p className="font-semibold truncate">{isNew && '✨ '}{video.title}</p>
+                          <div className="flex items-center text-[10px] mt-1 gap-1 opacity-80">
+                            <Eye className="h-3 w-3" />
+                            <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                            {isNew && <span className="ml-1 text-primary-foreground bg-primary px-1 rounded-[2px] font-bold">NOVO</span>}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -383,16 +304,8 @@ export default function VideoDashboard() {
 export function DashboardSkeleton() {
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="aspect-video w-full rounded-xl" />
-                <div className="space-y-2 px-2"><Skeleton className="h-10 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div>
-            </div>
-            <div className="lg:col-span-1">
-                <Card className="h-full border-none bg-card/50">
-                    <CardHeader><Skeleton className="h-7 w-48" /><div className="flex flex-col gap-4 pt-4 sm:flex-row"><Skeleton className="h-9 w-full sm:w-1/2" /><Skeleton className="h-9 w-full sm:w-1/2" /></div></CardHeader>
-                    <CardContent className="space-y-3">{Array.from({ length: 5 }).map((_, i) => (<div key={i} className="flex items-center gap-4 p-3 bg-secondary/5 rounded-xl"><Skeleton className="h-12 w-12 rounded-lg" /><div className="flex-grow space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-3 w-1/4" /></div></div>))}</CardContent>
-                </Card>
-            </div>
+            <div className="lg:col-span-2 space-y-4"><Skeleton className="aspect-video w-full" /></div>
+            <div className="lg:col-span-1"><Skeleton className="h-96 w-full" /></div>
         </div>
     );
 }

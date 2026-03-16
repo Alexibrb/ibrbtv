@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -31,11 +30,9 @@ export default function VideoListManager() {
   const [orderedVideos, setOrderedVideos] = useState<WithId<Video>[]>([]);
   const [enabled, setEnabled] = useState(false);
 
-  // Buscamos sem orderBy para evitar que vídeos antigos sem o campo sumam
   const { data: videos, loading: videosLoading } = useCollection<Video>('videos');
   const { data: categoriesData, loading: categoriesLoading } = useCollection<Category>('categories');
 
-  // Fix para o dnd no React 18 + Next.js
   useEffect(() => {
     const animation = requestAnimationFrame(() => setEnabled(true));
     return () => {
@@ -46,11 +43,8 @@ export default function VideoListManager() {
 
   useEffect(() => {
     if (videos) {
-      // Ordenamos em memória de forma estrita para o Admin
       const sorted = [...videos].sort((a, b) => {
-        if ((a.order ?? 0) !== (b.order ?? 0)) {
-          return (a.order ?? 0) - (b.order ?? 0);
-        }
+        if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0);
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
       setOrderedVideos(sorted);
@@ -62,12 +56,7 @@ export default function VideoListManager() {
     return [ALL_CATEGORIES, ...uniqueCategories];
   }, [categoriesData]);
 
-  const handleOpenEditDialog = (video: WithId<Video>) => {
-    setVideoToEdit(video);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleSave = (updatedVideo: WithId<Video>) => {
+  const handleSave = () => {
     setIsEditDialogOpen(false);
     setVideoToEdit(null);
   };
@@ -75,56 +64,31 @@ export default function VideoListManager() {
   const handleDelete = async (videoId: string) => {
     try {
       await deleteDoc(doc(firestore, 'videos', videoId));
-      toast({
-        title: 'Vídeo removido!',
-        description: 'O vídeo foi removido do catálogo.',
-      });
+      toast({ title: 'Vídeo removido!' });
     } catch (error) {
-      console.error('Failed to delete video', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao remover',
-        description: 'Não foi possível remover o vídeo.',
-      });
+      toast({ variant: 'destructive', title: 'Erro ao remover' });
     }
   };
 
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-
     const items = Array.from(orderedVideos);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
-
     setOrderedVideos(items);
-
-    // Atualiza a ordem no Firestore para todos os itens afetados
     items.forEach((video, index) => {
       const newOrder = index * 10;
-      if (video.order !== newOrder) {
-        setDocumentNonBlocking(firestore, `videos/${video.id}`, { order: newOrder });
-      }
+      if (video.order !== newOrder) setDocumentNonBlocking(firestore, `videos/${video.id}`, { order: newOrder });
     });
-
-    toast({
-      title: 'Ordem atualizada',
-      description: 'A nova sequência dos vídeos foi salva.',
-    });
+    toast({ title: 'Ordem atualizada' });
   };
 
   const filteredVideos = useMemo(() => {
     return orderedVideos
-      .filter(video => {
-        if (selectedCategory === ALL_CATEGORIES) return true;
-        return video.category === selectedCategory;
-      })
-      .filter(video => {
-        if (!searchTerm) return true;
-        return video.title.toLowerCase().includes(searchTerm.toLowerCase());
-      });
+      .filter(video => selectedCategory === ALL_CATEGORIES || video.category === selectedCategory)
+      .filter(video => !searchTerm || video.title.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [orderedVideos, selectedCategory, searchTerm]);
 
-  // Desabilita drag and drop se houver filtros ativos
   const isFiltering = searchTerm !== '' || selectedCategory !== ALL_CATEGORIES;
 
   if (!enabled) return null;
@@ -134,112 +98,51 @@ export default function VideoListManager() {
       <Card className="shadow-lg mt-8">
         <CardHeader>
           <CardTitle className="font-headline text-3xl">Gerenciar Vídeos</CardTitle>
-          <CardDescription>
-            Visualize e organize a ordem dos vídeos no seu catálogo.
-          </CardDescription>
-          
           <div className="flex flex-col gap-4 pt-4 sm:flex-row">
-            <Input
-              placeholder="Filtrar por título..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-1/2"
-            />
-            <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
-              <SelectTrigger className="w-full sm:w-1/2">
-                <SelectValue placeholder={categoriesLoading ? "Carregando..." : "Filtrar por categoria"} />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
-              </SelectContent>
+            <Input placeholder="Filtrar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-1/2" />
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full sm:w-1/2"><SelectValue /></SelectTrigger>
+              <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-
           {isFiltering && (
             <Alert className="mt-4 bg-primary/5 border-primary/20">
               <AlertCircle className="h-4 w-4 text-primary" />
-              <AlertDescription className="text-xs text-primary/80">
-                A reordenação manual (arrastar) está desativada enquanto filtros de busca ou categoria estiverem ativos.
-              </AlertDescription>
+              <AlertDescription className="text-xs">A reordenação manual está desativada durante filtros.</AlertDescription>
             </Alert>
           )}
         </CardHeader>
         <CardContent>
-          {videosLoading ? (
-            <p>Carregando vídeos...</p>
-          ) : filteredVideos.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nenhum vídeo encontrado.</p>
-          ) : (
+          {videosLoading ? <p>Carregando...</p> : (
             <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="videos-list" isDropDisabled={isFiltering}>
                 {(provided) => (
                   <ScrollArea className="h-[500px]">
-                    <ul 
-                      {...provided.droppableProps} 
-                      ref={provided.innerRef} 
-                      className="space-y-4 pr-4 py-2"
-                    >
+                    <ul {...provided.droppableProps} ref={provided.innerRef} className="space-y-4 pr-4 py-2">
                       {filteredVideos.map((video, index) => (
-                        <Draggable 
-                          key={video.id} 
-                          draggableId={video.id} 
-                          index={index}
-                          isDragDisabled={isFiltering}
-                        >
+                        <Draggable key={video.id} draggableId={video.id} index={index} isDragDisabled={isFiltering}>
                           {(provided, snapshot) => (
-                            <li
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={cn(
-                                "grid grid-cols-[auto_1fr_auto] items-center gap-4 p-3 rounded-lg border bg-card transition-all",
-                                snapshot.isDragging && "shadow-2xl border-primary ring-2 ring-primary/20 z-50 bg-accent/5 scale-[1.02]"
-                              )}
-                            >
-                              <div 
-                                {...provided.dragHandleProps} 
-                                className={cn(
-                                  "p-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-primary transition-colors bg-secondary/20 rounded",
-                                  isFiltering && "opacity-20 cursor-not-allowed"
-                                )}
-                              >
+                            <li ref={provided.innerRef} {...provided.draggableProps} className={cn(
+                              "grid grid-cols-[auto_1fr_auto] items-center gap-4 p-3 rounded-lg border bg-card",
+                              snapshot.isDragging && "shadow-2xl border-primary ring-2 ring-primary/20 z-50 bg-accent/5"
+                            )}>
+                              <div {...provided.dragHandleProps} className={cn("p-2 text-muted-foreground", isFiltering && "opacity-20 cursor-not-allowed")}>
                                 <GripVertical className="h-5 w-5" />
                               </div>
                               <div className="min-w-0">
                                 <p className="font-semibold truncate">{video.title}</p>
-                                <div className="flex items-center gap-x-3 text-sm text-muted-foreground flex-wrap">
+                                <div className="flex items-center gap-x-3 text-xs text-muted-foreground">
                                   <span>{video.category}</span>
-                                  <span className="text-gray-400">&middot;</span>
-                                  <div className="flex items-center gap-1.5">
-                                    <Eye className="h-4 w-4" />
-                                    <span>{(video.viewCount ?? 0).toLocaleString('pt-BR')}</span>
+                                  <span>•</span>
+                                  <div className="flex items-center gap-1">
+                                    <Eye className="h-3 w-3" />
+                                    <span>{video.viewCount ?? 0}</span>
                                   </div>
                                 </div>
-                                {video.scheduledAt && (
-                                  <Badge variant="outline" className="mt-2 text-xs">
-                                     <Clock className="h-3 w-3 mr-1" />
-                                     Agendado: {new Date(video.scheduledAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                  </Badge>
-                                )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenEditDialog(video)}
-                                  aria-label={`Editar vídeo ${video.title}`}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDelete(video.id)}
-                                  aria-label={`Remover vídeo ${video.title}`}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => { setVideoToEdit(video); setIsEditDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete(video.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                               </div>
                             </li>
                           )}
@@ -254,12 +157,7 @@ export default function VideoListManager() {
           )}
         </CardContent>
       </Card>
-      <EditVideoDialog
-        video={videoToEdit}
-        isOpen={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        onSave={handleSave}
-      />
+      <EditVideoDialog video={videoToEdit} isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} onSave={handleSave} />
     </>
   );
 }
