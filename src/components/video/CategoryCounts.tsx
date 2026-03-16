@@ -80,8 +80,8 @@ export function CategoryCounts() {
           {Object.entries(categoryStats.counts)
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([category, count]) => (
-              <div key={category} className="flex flex-col items-center justify-center p-3 rounded-lg bg-secondary/10 border border-border/5 hover:bg-secondary/20 transition-colors shadow-sm">
-                <span className="text-[11px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider text-center truncate w-full mb-1 px-1">
+              <div key={category} className="flex flex-col items-center justify-center p-3 rounded-lg bg-secondary/10 border border-border/5 hover:bg-secondary/20 transition-colors shadow-sm min-h-[80px]">
+                <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center w-full mb-1 px-1 leading-tight line-clamp-2">
                   {category}
                 </span>
                 <span className="text-sm sm:text-base font-black text-foreground">
