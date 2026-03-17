@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -23,14 +24,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
 
 const formSchema = z.object({
-  logoUrl: z.string().url('Por favor, insira uma URL válida.'),
+  logoUrl: z.string().url('Por favor, insira uma URL válida para a logo.'),
+  websiteUrl: z.string().url('Por favor, insira uma URL válida para o site.').optional().or(z.literal('')),
 });
 
 type Settings = {
   logoUrl: string;
+  websiteUrl?: string;
 };
 
 export default function LogoSettingsForm() {
@@ -41,20 +44,24 @@ export default function LogoSettingsForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       logoUrl: '',
+      websiteUrl: '',
     },
   });
 
   useEffect(() => {
     if (settings) {
-      form.reset({ logoUrl: settings.logoUrl });
+      form.reset({ 
+        logoUrl: settings.logoUrl || '',
+        websiteUrl: settings.websiteUrl || ''
+      });
     }
   }, [settings, form]);
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     setDocumentNonBlocking(firestore, 'settings/config', data);
     toast({
-      title: 'Logo Atualizado!',
-      description: 'A URL do logo foi salva com sucesso.',
+      title: 'Configurações Atualizadas!',
+      description: 'As informações gerais foram salvas com sucesso.',
     });
   };
 
@@ -63,10 +70,10 @@ export default function LogoSettingsForm() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline text-3xl">
-            Configurações do Logo
+            Configurações Gerais
           </CardTitle>
           <CardDescription>
-            Gerencie a imagem do logo exibida no cabeçalho do site.
+            Gerencie a imagem da logo e o link do site oficial.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -83,21 +90,24 @@ export default function LogoSettingsForm() {
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline text-3xl">
-          Configurações do Logo
+          Configurações Gerais
         </CardTitle>
         <CardDescription>
-          Gerencie a imagem do logo exibida no cabeçalho do site.
+          Gerencie a imagem da logo exibida no cabeçalho e o link do site no rodapé.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="logoUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL da Imagem do Logo</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    URL da Imagem da Logo
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="https://exemplo.com/logo.png" {...field} />
                   </FormControl>
@@ -105,11 +115,29 @@ export default function LogoSettingsForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={form.formState.isSubmitting}>
+
+            <FormField
+              control={form.control}
+              name="websiteUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4" />
+                    Link do Site Oficial
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://www.ibrnobrasil.com.br" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" disabled={form.formState.isSubmitting} className="w-full">
               {form.formState.isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Salvar URL do Logo
+              Salvar Configurações Gerais
             </Button>
           </form>
         </Form>

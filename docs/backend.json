@@ -68,6 +68,10 @@
           "type": "string",
           "description": "The URL for the application logo."
         },
+        "websiteUrl": {
+          "type": "string",
+          "description": "The URL for the official church website."
+        },
         "defaultSummary": {
           "type": "string",
           "description": "The default summary text for new videos."
